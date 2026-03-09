@@ -175,3 +175,49 @@ test("recordPurchase inserts into purchases when listing exists", async () => {
     Date.now = originalDateNow;
   }
 });
+
+test("updateCreatorApiKey throws if creator does not exist", async () => {
+  const { updateCreatorApiKey } = mutations;
+  const ctx = {
+    db: {
+      get: async () => null,
+      patch: async () => {},
+    },
+  };
+
+  await assert.rejects(
+    updateCreatorApiKey._handler(ctx, {
+      creatorId: "creator_missing",
+      apiKey: "key_new",
+    }),
+    /Creator not found/,
+  );
+});
+
+test("updateCreatorApiKey patches creator api key", async () => {
+  const { updateCreatorApiKey } = mutations;
+  const patches = [];
+  const ctx = {
+    db: {
+      get: async () => ({ _id: "creator_1" }),
+      patch: async (id, value) => {
+        patches.push({ id, value });
+      },
+    },
+  };
+
+  const result = await updateCreatorApiKey._handler(ctx, {
+    creatorId: "creator_1",
+    apiKey: "key_new",
+  });
+
+  assert.equal(result, "creator_1");
+  assert.deepEqual(patches, [
+    {
+      id: "creator_1",
+      value: {
+        apiKey: "key_new",
+      },
+    },
+  ]);
+});

@@ -38,6 +38,25 @@ export const createListing = mutation({
   },
 });
 
+export const updateCreatorApiKey = mutation({
+  args: {
+    creatorId: v.id("creators"),
+    apiKey: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const creator = await ctx.db.get(args.creatorId);
+    if (!creator) {
+      throw new Error("Creator not found");
+    }
+
+    await ctx.db.patch(args.creatorId, {
+      apiKey: args.apiKey,
+    });
+
+    return args.creatorId;
+  },
+});
+
 export const recordPurchase = mutation({
   args: {
     listingId: v.id("listings"),

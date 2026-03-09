@@ -1,7 +1,8 @@
 import { httpActionGeneric as httpAction, httpRouter } from "convex/server";
 
-import { createCreator } from "./mutations.ts";
+import { createCreator, updateCreatorApiKey } from "./mutations.ts";
 import { getCreatorByWallet } from "./queries.ts";
+import { buildRecoveryMessage, recoverWalletAddress } from "./wallet.ts";
 
 const http = httpRouter();
 
@@ -43,10 +44,60 @@ export const registerCreator = httpAction(async (ctx, request) => {
   return json({ creatorId, apiKey }, 201);
 });
 
+export const recoverCreator = httpAction(async (ctx, request) => {
+  if (request.method !== "POST") {
+    return json({ error: "Method not allowed" }, 405);
+  }
+
+  let payload;
+  try {
+    payload = await request.json();
+  } catch {
+    return json({ error: "Invalid JSON body" }, 400);
+  }
+
+  const wallet = asNonEmptyString(payload?.wallet);
+  const signature = asNonEmptyString(payload?.signature);
+  const message =
+    asNonEmptyString(payload?.message) ??
+    (wallet ? buildRecoveryMessage(wallet) : undefined);
+
+  if (!wallet || !signature || !message) {
+    return json({ error: "wallet and signature are required" }, 400);
+  }
+
+  const existingCreator = await ctx.runQuery(getCreatorByWallet, { wallet });
+  if (!existingCreator) {
+    return json({ error: "Creator not found for wallet" }, 404);
+  }
+
+  const recoveredWallet = recoverWalletAddress(message, signature);
+  if (
+    !recoveredWallet ||
+    recoveredWallet.toLowerCase() !== wallet.toLowerCase()
+  ) {
+    return json({ error: "Invalid wallet signature" }, 401);
+  }
+
+  const apiKey = crypto.randomUUID();
+  await ctx.runMutation(updateCreatorApiKey, {
+    creatorId: existingCreator._id,
+    apiKey,
+  });
+
+  return json({ creatorId: existingCreator._id, apiKey }, 200);
+});
+
 http.route({
   path: "/api/register",
   method: "POST",
   handler: registerCreator,
+});
+
+http.route({
+  path: "/api/recover",
+  method: "POST",
+  handler: recoverCreator,
 });
 
 export default http;
