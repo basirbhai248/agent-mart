@@ -1,0 +1,18 @@
+{
+  "name": "agentmart",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "agentmart": "./bin/agentmart.js"
+  },
+  "scripts": {
+    "test": "node --test *.test.mjs",
+    "lint": "node --check bin/agentmart.js"
+  },
+  "dependencies": {
+    "@x402/fetch": "latest",
+    "commander": "latest",
+    "viem": "latest"
+  }
+}
