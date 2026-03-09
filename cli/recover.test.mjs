@@ -62,8 +62,12 @@ test("recoverCreator surfaces API errors", async () => {
 
 test("createRecoverAction logs returned API key", async () => {
   const logs = [];
+  const savedApiKeys = [];
   const action = createRecoverAction({
     logger: { log: (line) => logs.push(line) },
+    setApiKey: async (apiKey) => {
+      savedApiKeys.push(apiKey);
+    },
     fetchImpl: async () =>
       new Response(JSON.stringify({ apiKey: "api_789" }), {
         status: 200,
@@ -73,4 +77,5 @@ test("createRecoverAction logs returned API key", async () => {
 
   await action({ wallet: "0xabc", signature: "0xsig" });
   assert.deepEqual(logs, ["API key: api_789"]);
+  assert.deepEqual(savedApiKeys, ["api_789"]);
 });

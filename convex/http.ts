@@ -264,6 +264,30 @@ export const getCreatorRoute = httpAction(async (ctx, request) => {
   );
 });
 
+export const getMeRoute = httpAction(async (ctx, request) => {
+  if (request.method !== "GET") {
+    return json({ error: "Method not allowed" }, 405);
+  }
+
+  const apiKey = parseBearerToken(request.headers.get("authorization"));
+  if (!apiKey) {
+    return json({ error: "API key required" }, 401);
+  }
+
+  const creator = await ctx.runQuery(getCreatorByApiKey, { apiKey });
+  if (!creator) {
+    return json({ error: "Invalid API key" }, 401);
+  }
+
+  return json(
+    {
+      wallet: creator.wallet,
+      displayName: creator.displayName,
+    },
+    200,
+  );
+});
+
 export const getListingRoute = httpAction(async (ctx, request) => {
   if (request.method !== "GET") {
     return json({ error: "Method not allowed" }, 405);
@@ -390,6 +414,12 @@ http.route({
   path: "/api/creators/:wallet",
   method: "GET",
   handler: getCreatorRoute,
+});
+
+http.route({
+  path: "/api/me",
+  method: "GET",
+  handler: getMeRoute,
 });
 
 http.route({

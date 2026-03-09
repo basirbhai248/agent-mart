@@ -4,7 +4,12 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { resolvePrivateKey, setPrivateKey } from "./bin/config.js";
+import {
+  resolveApiKey,
+  resolvePrivateKey,
+  setApiKey,
+  setPrivateKey,
+} from "./bin/config.js";
 
 test("config set private-key stores key in ~/.agentmart/config.json", async () => {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "agentmart-config-"));
@@ -79,5 +84,35 @@ test("resolvePrivateKey reads config first and falls back to env vars", async ()
       },
     }),
     "0xwallet",
+  );
+});
+
+test("setApiKey and resolveApiKey use config first then env vars", async () => {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "agentmart-config-"));
+  const configFilePath = path.join(tmpDir, ".agentmart", "config.json");
+
+  await setApiKey("api_from_config", { configFilePath });
+  assert.equal(
+    await resolveApiKey({
+      configFilePath,
+      env: { AGENTMART_API_KEY: "api_from_env", API_KEY: "api_from_fallback" },
+    }),
+    "api_from_config",
+  );
+
+  await fs.rm(configFilePath);
+  assert.equal(
+    await resolveApiKey({
+      configFilePath,
+      env: { AGENTMART_API_KEY: "api_from_env", API_KEY: "api_from_fallback" },
+    }),
+    "api_from_env",
+  );
+  assert.equal(
+    await resolveApiKey({
+      configFilePath,
+      env: { API_KEY: "api_from_fallback" },
+    }),
+    "api_from_fallback",
   );
 });

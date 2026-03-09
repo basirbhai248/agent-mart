@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { setPrivateKey } from "./config.js";
 import { createBuyAction } from "./buy.js";
 import { createListAction } from "./list.js";
+import { createMeAction } from "./me.js";
 import { createRecoverAction } from "./recover.js";
 import { createRegisterAction } from "./register.js";
 import { createSearchAction } from "./search.js";
@@ -59,7 +60,12 @@ export function createProgram() {
     .option("--output <file>", "Output file path")
     .action(createBuyAction());
 
-  for (const commandName of ["updates", "me"]) {
+  program
+    .command("me")
+    .description("Show your creator profile from stored API key")
+    .action(createMeAction());
+
+  for (const commandName of ["updates"]) {
     program
       .command(commandName)
       .description(`${commandName} command`)

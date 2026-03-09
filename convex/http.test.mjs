@@ -10,6 +10,7 @@ const { creatorProfilePageRoute } = await import("./http.ts");
 const { searchListingsRoute } = await import("./http.ts");
 const { searchPageRoute } = await import("./http.ts");
 const { getCreatorRoute } = await import("./http.ts");
+const { getMeRoute } = await import("./http.ts");
 const { getListingRoute } = await import("./http.ts");
 const { getListingContentRoute } = await import("./http.ts");
 const { buildRecoveryMessage, privateKeyToWalletAddress, signRecoveryMessage } =
@@ -960,6 +961,77 @@ test("getCreatorRoute returns creator profile and listings", async () => {
   assert.equal(queryCalls.length, 2);
   assert.deepEqual(queryCalls[0].args, { wallet: "0xabc" });
   assert.deepEqual(queryCalls[1].args, { creatorId: "creator_1" });
+});
+
+test("getMeRoute returns 401 when API key is missing", async () => {
+  let queryCalled = false;
+  const ctx = {
+    runQuery: async () => {
+      queryCalled = true;
+      return null;
+    },
+  };
+
+  const request = new Request("https://example.com/api/me", {
+    method: "GET",
+  });
+
+  const response = await getMeRoute._handler(ctx, request);
+
+  assert.equal(response.status, 401);
+  assert.deepEqual(await response.json(), { error: "API key required" });
+  assert.equal(queryCalled, false);
+});
+
+test("getMeRoute returns 401 for invalid API key", async () => {
+  const queryCalls = [];
+  const ctx = {
+    runQuery: async (ref, args) => {
+      queryCalls.push({ ref, args });
+      return null;
+    },
+  };
+
+  const request = new Request("https://example.com/api/me", {
+    method: "GET",
+    headers: { authorization: "Bearer invalid_key" },
+  });
+
+  const response = await getMeRoute._handler(ctx, request);
+
+  assert.equal(response.status, 401);
+  assert.deepEqual(await response.json(), { error: "Invalid API key" });
+  assert.equal(queryCalls.length, 1);
+  assert.deepEqual(queryCalls[0].args, { apiKey: "invalid_key" });
+});
+
+test("getMeRoute returns wallet and displayName for valid API key", async () => {
+  const queryCalls = [];
+  const ctx = {
+    runQuery: async (ref, args) => {
+      queryCalls.push({ ref, args });
+      return {
+        _id: "creator_1",
+        wallet: "0xabc",
+        displayName: "Builder",
+      };
+    },
+  };
+
+  const request = new Request("https://example.com/api/me", {
+    method: "GET",
+    headers: { authorization: "Bearer valid_key" },
+  });
+
+  const response = await getMeRoute._handler(ctx, request);
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    wallet: "0xabc",
+    displayName: "Builder",
+  });
+  assert.equal(queryCalls.length, 1);
+  assert.deepEqual(queryCalls[0].args, { apiKey: "valid_key" });
 });
 
 test("getListingRoute returns 405 for non-GET methods", async () => {

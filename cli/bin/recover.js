@@ -1,4 +1,5 @@
 import { normalizeRequiredOption, resolveApiUrl } from "./register.js";
+import { setApiKey } from "./config.js";
 
 async function parseResponseError(response) {
   try {
@@ -46,8 +47,10 @@ export async function recoverCreator(options, deps = {}) {
 
 export function createRecoverAction(deps = {}) {
   const logger = deps.logger ?? console;
+  const saveApiKey = deps.setApiKey ?? setApiKey;
   return async (options) => {
     const { apiKey } = await recoverCreator(options, deps);
+    await saveApiKey(apiKey);
     logger.log(`API key: ${apiKey}`);
   };
 }

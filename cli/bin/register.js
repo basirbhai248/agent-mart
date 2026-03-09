@@ -1,4 +1,4 @@
-import { resolvePrivateKey } from "./config.js";
+import { resolvePrivateKey, setApiKey } from "./config.js";
 
 const DEFAULT_API_URL = "http://localhost:3000";
 
@@ -101,8 +101,10 @@ export async function registerCreator(options, deps = {}) {
 
 export function createRegisterAction(deps = {}) {
   const logger = deps.logger ?? console;
+  const saveApiKey = deps.setApiKey ?? setApiKey;
   return async (options) => {
     const { apiKey } = await registerCreator(options, deps);
+    await saveApiKey(apiKey);
     logger.log(`API key: ${apiKey}`);
   };
 }

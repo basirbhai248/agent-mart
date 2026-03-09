@@ -111,8 +111,12 @@ test("registerCreator surfaces API errors", async () => {
 
 test("createRegisterAction logs returned API key", async () => {
   const logs = [];
+  const savedApiKeys = [];
   const action = createRegisterAction({
     logger: { log: (line) => logs.push(line) },
+    setApiKey: async (apiKey) => {
+      savedApiKeys.push(apiKey);
+    },
     resolvePrivateKey: async () => "0xprivate",
     privateKeyToAccount: () => ({ address: "0xabc" }),
     fetchImpl: async () => {},
@@ -127,4 +131,5 @@ test("createRegisterAction logs returned API key", async () => {
 
   await action({ wallet: "0xabc", name: "Builder", bio: "bio" });
   assert.deepEqual(logs, ["API key: api_789"]);
+  assert.deepEqual(savedApiKeys, ["api_789"]);
 });
