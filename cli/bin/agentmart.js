@@ -4,6 +4,7 @@ import { Command } from "commander";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { setPrivateKey } from "./config.js";
+import { createListAction } from "./list.js";
 import { createRecoverAction } from "./recover.js";
 import { createRegisterAction } from "./register.js";
 import { createSearchAction } from "./search.js";
@@ -43,7 +44,13 @@ export function createProgram() {
     .description("Search listings")
     .action(createSearchAction());
 
-  for (const commandName of ["list", "buy", "updates", "me"]) {
+  program
+    .command("list")
+    .description("List listings by creator wallet")
+    .requiredOption("--creator <wallet>", "Creator wallet address")
+    .action(createListAction());
+
+  for (const commandName of ["buy", "updates", "me"]) {
     program
       .command(commandName)
       .description(`${commandName} command`)
