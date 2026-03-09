@@ -1062,7 +1062,7 @@ test("getListingRoute returns 405 for non-GET methods", async () => {
     },
   };
 
-  const request = new Request("https://example.com/api/listings/listing_1", {
+  const request = new Request("https://example.com/api/listing?id=listing_1", {
     method: "POST",
   });
 
@@ -1073,7 +1073,7 @@ test("getListingRoute returns 405 for non-GET methods", async () => {
   assert.equal(queryCalled, false);
 });
 
-test("getListingRoute returns 400 when listing id is blank", async () => {
+test("getListingRoute returns 400 when listing id query is missing", async () => {
   let queryCalled = false;
   const ctx = {
     runQuery: async () => {
@@ -1082,7 +1082,27 @@ test("getListingRoute returns 400 when listing id is blank", async () => {
     },
   };
 
-  const request = new Request("https://example.com/api/listings/%20", {
+  const request = new Request("https://example.com/api/listing", {
+    method: "GET",
+  });
+
+  const response = await getListingRoute._handler(ctx, request);
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "Listing id is required" });
+  assert.equal(queryCalled, false);
+});
+
+test("getListingRoute returns 400 when listing id query is blank", async () => {
+  let queryCalled = false;
+  const ctx = {
+    runQuery: async () => {
+      queryCalled = true;
+      return null;
+    },
+  };
+
+  const request = new Request("https://example.com/api/listing?id=%20", {
     method: "GET",
   });
 
@@ -1102,7 +1122,7 @@ test("getListingRoute returns 404 when listing does not exist", async () => {
     },
   };
 
-  const request = new Request("https://example.com/api/listings/listing_1", {
+  const request = new Request("https://example.com/api/listing?id=listing_1", {
     method: "GET",
   });
 
@@ -1129,7 +1149,7 @@ test("getListingRoute returns listing metadata by id", async () => {
     },
   };
 
-  const request = new Request("https://example.com/api/listings/listing_1", {
+  const request = new Request("https://example.com/api/listing?id=listing_1", {
     method: "GET",
   });
 

@@ -293,7 +293,7 @@ export const getListingRoute = httpAction(async (ctx, request) => {
     return json({ error: "Method not allowed" }, 405);
   }
 
-  const listingId = listingIdFromPathname(new URL(request.url).pathname);
+  const listingId = listingIdFromQuery(new URL(request.url).searchParams);
   if (!listingId) {
     return json({ error: "Listing id is required" }, 400);
   }
@@ -423,7 +423,7 @@ http.route({
 });
 
 http.route({
-  path: "/api/listings/:id",
+  path: "/api/listing",
   method: "GET",
   handler: getListingRoute,
 });
@@ -696,22 +696,11 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
-function listingIdFromPathname(pathname: string): Id<"listings"> | undefined {
-  const segments = pathname.split("/").filter(Boolean);
-  if (
-    segments.length !== 3 ||
-    segments[0] !== "api" ||
-    segments[1] !== "listings"
-  ) {
-    return undefined;
-  }
-
-  try {
-    const listingId = asNonEmptyString(decodeURIComponent(segments[2]));
-    return listingId as Id<"listings"> | undefined;
-  } catch {
-    return undefined;
-  }
+function listingIdFromQuery(
+  searchParams: URLSearchParams,
+): Id<"listings"> | undefined {
+  const listingId = asNonEmptyString(searchParams.get("id"));
+  return listingId as Id<"listings"> | undefined;
 }
 
 function listingContentIdFromPathname(

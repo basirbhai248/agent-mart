@@ -6,7 +6,7 @@ import { proxyToConvex } from "./src/app/api/_lib/proxy.ts";
 const originalFetch = globalThis.fetch;
 
 test("proxyToConvex forwards POST requests to Convex with body and headers", async (t) => {
-  process.env.NEXT_PUBLIC_CONVEX_URL = "https://example.convex.cloud/";
+  process.env.CONVEX_SITE_URL = "https://example.convex.cloud/";
 
   let calledUrl;
   let calledInit;
@@ -48,7 +48,7 @@ test("proxyToConvex forwards POST requests to Convex with body and headers", asy
 });
 
 test("proxyToConvex forwards GET query params to Convex", async (t) => {
-  process.env.NEXT_PUBLIC_CONVEX_URL = "https://example.convex.cloud";
+  process.env.CONVEX_SITE_URL = "https://example.convex.cloud";
 
   let calledUrl;
 
@@ -72,7 +72,7 @@ test("proxyToConvex forwards GET query params to Convex", async (t) => {
 });
 
 test("proxyToConvex preserves 402 responses for listing content", async (t) => {
-  process.env.NEXT_PUBLIC_CONVEX_URL = "https://example.convex.cloud";
+  process.env.CONVEX_SITE_URL = "https://example.convex.cloud";
 
   globalThis.fetch = async () =>
     new Response(
@@ -103,8 +103,8 @@ test("proxyToConvex preserves 402 responses for listing content", async (t) => {
   assert.equal(payload.payment.scheme, "x402");
 });
 
-test("proxyToConvex throws when NEXT_PUBLIC_CONVEX_URL is missing", async (t) => {
-  delete process.env.NEXT_PUBLIC_CONVEX_URL;
+test("proxyToConvex throws when CONVEX_SITE_URL is missing", async (t) => {
+  delete process.env.CONVEX_SITE_URL;
 
   globalThis.fetch = async () => {
     throw new Error("fetch should not be called");
@@ -118,6 +118,6 @@ test("proxyToConvex throws when NEXT_PUBLIC_CONVEX_URL is missing", async (t) =>
 
   await assert.rejects(
     proxyToConvex(request, "/api/listings"),
-    /NEXT_PUBLIC_CONVEX_URL is required/,
+    /CONVEX_SITE_URL is required/,
   );
 });
