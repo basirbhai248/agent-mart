@@ -24,3 +24,22 @@ test("cli entrypoint exists and has a node shebang", async () => {
 
   assert.match(binContents, /^#!\/usr\/bin\/env node\n/);
 });
+
+test("cli help lists the supported subcommands", async () => {
+  const binPath = path.join(root, "bin", "agentmart.js");
+  const binContents = await fs.readFile(binPath, "utf8");
+
+  for (const commandName of [
+    "register",
+    "recover",
+    "upload",
+    "search",
+    "list",
+    "buy",
+    "updates",
+    "me",
+    "config",
+  ]) {
+    assert.match(binContents, new RegExp(`["']${commandName}["']`));
+  }
+});
