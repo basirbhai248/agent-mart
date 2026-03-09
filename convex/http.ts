@@ -210,7 +210,7 @@ export const searchListingsRoute = httpAction(async (ctx, request) => {
 
   const query = new URL(request.url).searchParams.get("q") ?? "";
   const listings = await ctx.runQuery(api.queries.searchListings, { query });
-  return json(listings, 200);
+  return jsonWithContentLength(listings, 200);
 });
 
 export const searchPageRoute = httpAction(async (ctx, request) => {
@@ -463,6 +463,17 @@ function json(body: unknown, status: number): Response {
     status,
     headers: {
       "content-type": "application/json",
+    },
+  });
+}
+
+function jsonWithContentLength(body: unknown, status: number): Response {
+  const payload = JSON.stringify(body);
+  return new Response(payload, {
+    status,
+    headers: {
+      "content-type": "application/json",
+      "content-length": String(new TextEncoder().encode(payload).byteLength),
     },
   });
 }

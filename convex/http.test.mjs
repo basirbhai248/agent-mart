@@ -785,6 +785,37 @@ test("searchListingsRoute returns matching listings", async () => {
   assert.deepEqual(queryCalls[0].args, { query: " alpha " });
 });
 
+test("searchListingsRoute returns complete JSON with explicit content length", async () => {
+  const listings = [
+    {
+      _id: "listing_1",
+      title: "Twitter Strategy",
+      description: "x".repeat(80_000),
+      priceUsdc: 10,
+      fileStorageId: "file_1",
+      creatorId: "creator_1",
+      createdAt: Date.now(),
+    },
+  ];
+  const ctx = {
+    runQuery: async () => listings,
+  };
+
+  const request = new Request("https://example.com/api/search?q=twitter", {
+    method: "GET",
+  });
+
+  const response = await searchListingsRoute._handler(ctx, request);
+  const body = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.equal(
+    response.headers.get("content-length"),
+    String(new TextEncoder().encode(body).byteLength),
+  );
+  assert.deepEqual(JSON.parse(body), listings);
+});
+
 test("searchPageRoute returns 405 for non-GET methods", async () => {
   let queryCalled = false;
   const ctx = {
