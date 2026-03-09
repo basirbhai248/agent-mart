@@ -8,6 +8,7 @@ import {
 import {
   getCreatorByApiKey,
   getCreatorByWallet,
+  getListing,
   getListings,
 } from "./queries.ts";
 import { buildRecoveryMessage, recoverWalletAddress } from "./wallet.ts";
@@ -157,6 +158,24 @@ export const listListingsRoute = httpAction(async (ctx, request) => {
   return json(listings, 200);
 });
 
+export const getListingRoute = httpAction(async (ctx, request) => {
+  if (request.method !== "GET") {
+    return json({ error: "Method not allowed" }, 405);
+  }
+
+  const listingId = listingIdFromPathname(new URL(request.url).pathname);
+  if (!listingId) {
+    return json({ error: "Listing id is required" }, 400);
+  }
+
+  const listing = await ctx.runQuery(getListing, { listingId });
+  if (!listing) {
+    return json({ error: "Listing not found" }, 404);
+  }
+
+  return json(listing, 200);
+});
+
 http.route({
   path: "/api/register",
   method: "POST",
@@ -179,6 +198,12 @@ http.route({
   path: "/api/listings",
   method: "GET",
   handler: listListingsRoute,
+});
+
+http.route({
+  path: "/api/listings/:id",
+  method: "GET",
+  handler: getListingRoute,
 });
 
 export default http;
@@ -220,4 +245,21 @@ function json(body: unknown, status: number): Response {
       "content-type": "application/json",
     },
   });
+}
+
+function listingIdFromPathname(pathname: string): string | undefined {
+  const segments = pathname.split("/").filter(Boolean);
+  if (
+    segments.length !== 3 ||
+    segments[0] !== "api" ||
+    segments[1] !== "listings"
+  ) {
+    return undefined;
+  }
+
+  try {
+    return asNonEmptyString(decodeURIComponent(segments[2]));
+  } catch {
+    return undefined;
+  }
 }

@@ -5,6 +5,7 @@ const { registerCreator } = await import("./http.ts");
 const { recoverCreator } = await import("./http.ts");
 const { createListingRoute } = await import("./http.ts");
 const { listListingsRoute } = await import("./http.ts");
+const { getListingRoute } = await import("./http.ts");
 const { buildRecoveryMessage, privateKeyToWalletAddress, signRecoveryMessage } =
   await import("./wallet.ts");
 
@@ -488,4 +489,72 @@ test("listListingsRoute returns all listings", async () => {
   assert.deepEqual(await response.json(), listings);
   assert.equal(queryCalls.length, 1);
   assert.deepEqual(queryCalls[0].args, {});
+});
+
+test("getListingRoute returns 405 for non-GET methods", async () => {
+  let queryCalled = false;
+  const ctx = {
+    runQuery: async () => {
+      queryCalled = true;
+      return null;
+    },
+  };
+
+  const request = new Request("https://example.com/api/listings/listing_1", {
+    method: "POST",
+  });
+
+  const response = await getListingRoute._handler(ctx, request);
+
+  assert.equal(response.status, 405);
+  assert.deepEqual(await response.json(), { error: "Method not allowed" });
+  assert.equal(queryCalled, false);
+});
+
+test("getListingRoute returns 404 when listing does not exist", async () => {
+  const queryCalls = [];
+  const ctx = {
+    runQuery: async (ref, args) => {
+      queryCalls.push({ ref, args });
+      return null;
+    },
+  };
+
+  const request = new Request("https://example.com/api/listings/listing_1", {
+    method: "GET",
+  });
+
+  const response = await getListingRoute._handler(ctx, request);
+
+  assert.equal(response.status, 404);
+  assert.deepEqual(await response.json(), { error: "Listing not found" });
+  assert.equal(queryCalls.length, 1);
+  assert.deepEqual(queryCalls[0].args, { listingId: "listing_1" });
+});
+
+test("getListingRoute returns listing metadata by id", async () => {
+  const queryCalls = [];
+  const listing = {
+    _id: "listing_1",
+    title: "Alpha",
+    description: "A listing",
+    priceUsdc: 12,
+  };
+  const ctx = {
+    runQuery: async (ref, args) => {
+      queryCalls.push({ ref, args });
+      return listing;
+    },
+  };
+
+  const request = new Request("https://example.com/api/listings/listing_1", {
+    method: "GET",
+  });
+
+  const response = await getListingRoute._handler(ctx, request);
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), listing);
+  assert.equal(queryCalls.length, 1);
+  assert.deepEqual(queryCalls[0].args, { listingId: "listing_1" });
 });
