@@ -176,6 +176,39 @@ export const homepageRoute = httpAction(async (ctx, request) => {
   return html(renderHomepage(featuredListings), 200);
 });
 
+export const creatorProfilePageRoute = httpAction(async (ctx, request) => {
+  if (request.method !== "GET") {
+    return json({ error: "Method not allowed" }, 405);
+  }
+
+  const wallet = creatorProfileWalletFromPathname(
+    new URL(request.url).pathname,
+  );
+  if (!wallet) {
+    return json({ error: "Wallet is required" }, 400);
+  }
+
+  const creator = await ctx.runQuery(getCreatorByWallet, { wallet });
+  if (!creator) {
+    return html(renderCreatorNotFound(wallet), 404);
+  }
+
+  const listings = await ctx.runQuery(getCreatorListings, {
+    creatorId: creator._id,
+  });
+
+  return html(
+    renderCreatorProfile({
+      wallet: creator.wallet,
+      displayName: creator.displayName,
+      bio: creator.bio,
+      twitterHandle: creator.twitterHandle,
+      listings,
+    }),
+    200,
+  );
+});
+
 export const searchListingsRoute = httpAction(async (ctx, request) => {
   if (request.method !== "GET") {
     return json({ error: "Method not allowed" }, 405);
@@ -299,6 +332,12 @@ http.route({
   path: "/",
   method: "GET",
   handler: homepageRoute,
+});
+
+http.route({
+  path: "/creator/:wallet",
+  method: "GET",
+  handler: creatorProfilePageRoute,
 });
 
 http.route({
@@ -447,6 +486,89 @@ function renderHomepage(
 </html>`;
 }
 
+function renderCreatorProfile(creator: {
+  wallet: string;
+  displayName: string;
+  bio: string;
+  twitterHandle?: string;
+  listings: Array<{
+    _id: string;
+    title: string;
+    description: string;
+    priceUsdc: number;
+  }>;
+}): string {
+  const twitterMarkup = creator.twitterHandle
+    ? `<p class="meta">Twitter: <a href="https://x.com/${encodeURIComponent(
+        creator.twitterHandle.replace(/^@/, ""),
+      )}">${escapeHtml(creator.twitterHandle)}</a></p>`
+    : "";
+  const listingsMarkup =
+    creator.listings.length === 0
+      ? "<p>This creator has no listings yet.</p>"
+      : `<ul>${creator.listings
+          .map(
+            (listing) =>
+              `<li><article><h2>${escapeHtml(listing.title)}</h2><p>${escapeHtml(listing.description)}</p><p><strong>$${listing.priceUsdc.toFixed(2)} USDC</strong></p><a href="/api/listings/${encodeURIComponent(listing._id)}">View listing</a></article></li>`,
+          )
+          .join("")}</ul>`;
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${escapeHtml(creator.displayName)} | Agent Mart</title>
+    <style>
+      :root { color-scheme: light; }
+      body { font-family: "Segoe UI", Tahoma, sans-serif; margin: 0; background: linear-gradient(160deg, #fff8ef 0%, #fff 52%, #eef7ff 100%); color: #18212f; }
+      main { max-width: 860px; margin: 0 auto; padding: 40px 20px 56px; }
+      .panel { background: rgba(255, 255, 255, 0.95); border: 1px solid #dfebff; border-radius: 14px; padding: 20px; box-shadow: 0 10px 28px rgba(19, 45, 80, 0.08); }
+      h1 { margin: 0; font-size: clamp(2rem, 5vw, 2.4rem); }
+      .wallet { margin: 6px 0 0; color: #435167; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.95rem; word-break: break-all; }
+      .bio { margin: 12px 0 0; line-height: 1.5; }
+      .meta { margin: 12px 0 0; color: #34465f; }
+      h2 { margin: 30px 0 12px; font-size: 1.35rem; }
+      ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+      article { background: #fff; border: 1px solid #d8e7ff; border-radius: 12px; padding: 14px; }
+      article h2 { margin: 0 0 6px; font-size: 1.15rem; }
+      article p { margin: 0 0 8px; line-height: 1.4; }
+      a { color: #0050d2; font-weight: 600; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="panel">
+        <h1>${escapeHtml(creator.displayName)}</h1>
+        <p class="wallet">${escapeHtml(creator.wallet)}</p>
+        <p class="bio">${escapeHtml(creator.bio)}</p>
+        ${twitterMarkup}
+      </section>
+      <h2>Listings</h2>
+      ${listingsMarkup}
+    </main>
+  </body>
+</html>`;
+}
+
+function renderCreatorNotFound(wallet: string): string {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Creator Not Found | Agent Mart</title>
+  </head>
+  <body>
+    <main>
+      <h1>Creator Not Found</h1>
+      <p>No creator profile exists for wallet: ${escapeHtml(wallet)}</p>
+    </main>
+  </body>
+</html>`;
+}
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -486,6 +608,21 @@ function listingContentIdFromPathname(pathname: string): string | undefined {
 
   try {
     return asNonEmptyString(decodeURIComponent(segments[2]));
+  } catch {
+    return undefined;
+  }
+}
+
+function creatorProfileWalletFromPathname(
+  pathname: string,
+): string | undefined {
+  const segments = pathname.split("/").filter(Boolean);
+  if (segments.length !== 2 || segments[0] !== "creator") {
+    return undefined;
+  }
+
+  try {
+    return asNonEmptyString(decodeURIComponent(segments[1]));
   } catch {
     return undefined;
   }

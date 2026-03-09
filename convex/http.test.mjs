@@ -6,6 +6,7 @@ const { recoverCreator } = await import("./http.ts");
 const { createListingRoute } = await import("./http.ts");
 const { listListingsRoute } = await import("./http.ts");
 const { homepageRoute } = await import("./http.ts");
+const { creatorProfilePageRoute } = await import("./http.ts");
 const { searchListingsRoute } = await import("./http.ts");
 const { getCreatorRoute } = await import("./http.ts");
 const { getListingRoute } = await import("./http.ts");
@@ -572,6 +573,154 @@ test("homepageRoute renders featured listings as HTML", async () => {
   assert.match(body, /Newest &quot;Listing&quot;/);
   assert.match(body, /latest &lt;alpha&gt;/);
   assert.equal(body.includes("Old Listing"), false);
+});
+
+test("creatorProfilePageRoute returns 405 for non-GET methods", async () => {
+  let queryCalled = false;
+  const ctx = {
+    runQuery: async () => {
+      queryCalled = true;
+      return null;
+    },
+  };
+
+  const request = new Request("https://example.com/creator/0xabc", {
+    method: "POST",
+  });
+
+  const response = await creatorProfilePageRoute._handler(ctx, request);
+
+  assert.equal(response.status, 405);
+  assert.deepEqual(await response.json(), { error: "Method not allowed" });
+  assert.equal(queryCalled, false);
+});
+
+test("creatorProfilePageRoute returns 400 when wallet path segment is missing", async () => {
+  let queryCalled = false;
+  const ctx = {
+    runQuery: async () => {
+      queryCalled = true;
+      return null;
+    },
+  };
+
+  const request = new Request("https://example.com/creator", {
+    method: "GET",
+  });
+
+  const response = await creatorProfilePageRoute._handler(ctx, request);
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "Wallet is required" });
+  assert.equal(queryCalled, false);
+});
+
+test("creatorProfilePageRoute renders not found page when creator does not exist", async () => {
+  const queryCalls = [];
+  const ctx = {
+    runQuery: async (ref, args) => {
+      queryCalls.push({ ref, args });
+      return null;
+    },
+  };
+
+  const request = new Request("https://example.com/creator/0xmissing", {
+    method: "GET",
+  });
+
+  const response = await creatorProfilePageRoute._handler(ctx, request);
+  const body = await response.text();
+
+  assert.equal(response.status, 404);
+  assert.equal(
+    response.headers.get("content-type"),
+    "text/html; charset=utf-8",
+  );
+  assert.equal(queryCalls.length, 1);
+  assert.deepEqual(queryCalls[0].args, { wallet: "0xmissing" });
+  assert.match(body, /Creator Not Found/);
+  assert.match(body, /0xmissing/);
+});
+
+test("creatorProfilePageRoute renders creator profile and listings as HTML", async () => {
+  const queryCalls = [];
+  const creator = {
+    _id: "creator_1",
+    wallet: "0xabc",
+    displayName: "Alice <Builder>",
+    bio: "Builds tools & guides",
+    twitterHandle: "@alice",
+  };
+  const listings = [
+    {
+      _id: "listing_1",
+      title: 'Alpha "Pack"',
+      description: "First <listing>",
+      priceUsdc: 5,
+    },
+    {
+      _id: "listing_2",
+      title: "Beta",
+      description: "Second",
+      priceUsdc: 12.5,
+    },
+  ];
+  const ctx = {
+    runQuery: async (ref, args) => {
+      queryCalls.push({ ref, args });
+      return queryCalls.length === 1 ? creator : listings;
+    },
+  };
+
+  const request = new Request("https://example.com/creator/%200xabc%20", {
+    method: "GET",
+  });
+
+  const response = await creatorProfilePageRoute._handler(ctx, request);
+  const body = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.equal(
+    response.headers.get("content-type"),
+    "text/html; charset=utf-8",
+  );
+  assert.equal(queryCalls.length, 2);
+  assert.deepEqual(queryCalls[0].args, { wallet: "0xabc" });
+  assert.deepEqual(queryCalls[1].args, { creatorId: "creator_1" });
+  assert.match(body, /Alice &lt;Builder&gt;/);
+  assert.match(body, /Builds tools &amp; guides/);
+  assert.match(body, /Alpha &quot;Pack&quot;/);
+  assert.match(body, /First &lt;listing&gt;/);
+  assert.match(body, /\$12\.50 USDC/);
+  assert.match(body, /https:\/\/x\.com\/alice/);
+});
+
+test("creatorProfilePageRoute shows empty listings state", async () => {
+  const queryCalls = [];
+  const ctx = {
+    runQuery: async (ref, args) => {
+      queryCalls.push({ ref, args });
+      return queryCalls.length === 1
+        ? {
+            _id: "creator_1",
+            wallet: "0xabc",
+            displayName: "Alice",
+            bio: "Builder",
+          }
+        : [];
+    },
+  };
+
+  const request = new Request("https://example.com/creator/0xabc", {
+    method: "GET",
+  });
+
+  const response = await creatorProfilePageRoute._handler(ctx, request);
+  const body = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.equal(queryCalls.length, 2);
+  assert.match(body, /This creator has no listings yet\./);
 });
 
 test("searchListingsRoute returns 405 for non-GET methods", async () => {
