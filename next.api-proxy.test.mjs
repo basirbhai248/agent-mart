@@ -102,11 +102,13 @@ test("proxyToConvex merges path and request query params", async (t) => {
 });
 
 test("listing and creator route handlers target Convex query-param endpoints", async () => {
-  const [listingRoute, listingContentRoute, creatorRoute] = await Promise.all([
-    readFile("./src/app/api/listings/[id]/route.ts", "utf8"),
-    readFile("./src/app/api/listings/[id]/content/route.ts", "utf8"),
-    readFile("./src/app/api/creators/[wallet]/route.ts", "utf8"),
-  ]);
+  const [listingRoute, listingContentRoute, creatorRoute, creatorsRoute] =
+    await Promise.all([
+      readFile("./src/app/api/listings/[id]/route.ts", "utf8"),
+      readFile("./src/app/api/listings/[id]/content/route.ts", "utf8"),
+      readFile("./src/app/api/creators/[wallet]/route.ts", "utf8"),
+      readFile("./src/app/api/creators/route.ts", "utf8"),
+    ]);
 
   assert.match(
     listingRoute,
@@ -120,6 +122,7 @@ test("listing and creator route handlers target Convex query-param endpoints", a
     creatorRoute,
     /\/api\/creators\?wallet=\$\{encodeURIComponent\(wallet\)\}/,
   );
+  assert.match(creatorsRoute, /proxyToConvex\(request, "\/api\/creators"\)/);
 });
 
 test("proxyToConvex preserves 402 responses for listing content", async (t) => {
