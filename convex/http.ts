@@ -1,5 +1,6 @@
 import { httpActionGeneric as httpAction, httpRouter } from "convex/server";
 import { api } from "./_generated/api.js";
+import type { Id } from "./_generated/dataModel.js";
 import { buildRecoveryMessage, recoverWalletAddress } from "./wallet.ts";
 
 const http = httpRouter();
@@ -693,7 +694,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
-function listingIdFromPathname(pathname: string): string | undefined {
+function listingIdFromPathname(pathname: string): Id<"listings"> | undefined {
   const segments = pathname.split("/").filter(Boolean);
   if (
     segments.length !== 3 ||
@@ -704,13 +705,16 @@ function listingIdFromPathname(pathname: string): string | undefined {
   }
 
   try {
-    return asNonEmptyString(decodeURIComponent(segments[2]));
+    const listingId = asNonEmptyString(decodeURIComponent(segments[2]));
+    return listingId as Id<"listings"> | undefined;
   } catch {
     return undefined;
   }
 }
 
-function listingContentIdFromPathname(pathname: string): string | undefined {
+function listingContentIdFromPathname(
+  pathname: string,
+): Id<"listings"> | undefined {
   const segments = pathname.split("/").filter(Boolean);
   if (
     segments.length !== 4 ||
@@ -722,7 +726,8 @@ function listingContentIdFromPathname(pathname: string): string | undefined {
   }
 
   try {
-    return asNonEmptyString(decodeURIComponent(segments[2]));
+    const listingId = asNonEmptyString(decodeURIComponent(segments[2]));
+    return listingId as Id<"listings"> | undefined;
   } catch {
     return undefined;
   }

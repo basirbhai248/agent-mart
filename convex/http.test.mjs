@@ -1070,6 +1070,26 @@ test("getListingRoute returns 405 for non-GET methods", async () => {
   assert.equal(queryCalled, false);
 });
 
+test("getListingRoute returns 400 when listing id is blank", async () => {
+  let queryCalled = false;
+  const ctx = {
+    runQuery: async () => {
+      queryCalled = true;
+      return null;
+    },
+  };
+
+  const request = new Request("https://example.com/api/listings/%20", {
+    method: "GET",
+  });
+
+  const response = await getListingRoute._handler(ctx, request);
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "Listing id is required" });
+  assert.equal(queryCalled, false);
+});
+
 test("getListingRoute returns 404 when listing does not exist", async () => {
   const queryCalls = [];
   const ctx = {
@@ -1141,6 +1161,32 @@ test("getListingContentRoute returns 405 for non-GET methods", async () => {
   assert.equal(response.status, 405);
   assert.deepEqual(await response.json(), { error: "Method not allowed" });
   assert.equal(queryCalled, false);
+});
+
+test("getListingContentRoute returns 400 when listing id is blank", async () => {
+  let queryCalled = false;
+  let mutationCalled = false;
+  const ctx = {
+    runQuery: async () => {
+      queryCalled = true;
+      return null;
+    },
+    runMutation: async () => {
+      mutationCalled = true;
+      return "purchase_1";
+    },
+  };
+
+  const request = new Request("https://example.com/api/listings/%20/content", {
+    method: "GET",
+  });
+
+  const response = await getListingContentRoute._handler(ctx, request);
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "Listing id is required" });
+  assert.equal(queryCalled, false);
+  assert.equal(mutationCalled, false);
 });
 
 test("getListingContentRoute returns 404 when listing does not exist", async () => {
