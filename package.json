@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "node --experimental-strip-types --test convex/*.test.mjs",
-    "lint": "npx prettier --check convex/schema.ts convex/schema.test.mjs convex/mutations.ts convex/mutations.test.mjs convex/queries.ts convex/queries.test.mjs"
+    "lint": "npx prettier --check convex/*.ts convex/*.mjs"
   },
   "keywords": [],
   "author": "",
