@@ -1,14 +1,37 @@
-const V1_NETWORKS = ["base", "base-sepolia"];
+const NETWORK_CAIP_IDS = {
+  base: "eip155:8453",
+  "base-sepolia": "eip155:84532",
+};
 
-async function resolveX402Client(x402ClientOrFunc) {
-  if (x402ClientOrFunc) {
-    return typeof x402ClientOrFunc === "function" 
-      ? new x402ClientOrFunc() 
-      : x402ClientOrFunc;
+async function resolveX402Client(x402ClientArg, x402ClientCtor) {
+  if (x402ClientArg) {
+    return x402ClientArg;
+  }
+
+  if (x402ClientCtor) {
+    return new x402ClientCtor();
   }
 
   const { x402Client } = await import("@x402/fetch");
   return new x402Client();
+}
+
+async function resolveExactEvmSchemeCtor(exactEvmSchemeCtor) {
+  if (exactEvmSchemeCtor) {
+    return exactEvmSchemeCtor;
+  }
+
+  const { ExactEvmScheme } = await import("@x402/evm");
+  return ExactEvmScheme;
+}
+
+async function resolveExactEvmSchemeV1Ctor(exactEvmSchemeV1Ctor) {
+  if (exactEvmSchemeV1Ctor) {
+    return exactEvmSchemeV1Ctor;
+  }
+
+  const { ExactEvmSchemeV1 } = await import("@x402/evm/v1");
+  return ExactEvmSchemeV1;
 }
 
 export async function createX402PaymentClient({
@@ -17,45 +40,22 @@ export async function createX402PaymentClient({
   x402Client: x402ClientArg,
   x402ClientCtor,
   exactEvmSchemeCtor,
+  exactEvmSchemeV1Ctor,
 }) {
-  // Get x402Client from @x402/fetch (not @x402/core)
-  let client;
-  if (x402ClientArg) {
-    client = x402ClientArg;
-  } else {
-    const { x402Client } = await import("@x402/fetch");
-    client = new x402Client();
-  }
+  const client = await resolveX402Client(x402ClientArg, x402ClientCtor);
+  const ExactEvmScheme = await resolveExactEvmSchemeCtor(exactEvmSchemeCtor);
+  const scheme = new ExactEvmScheme(account);
+  const caipNetwork = NETWORK_CAIP_IDS[network] ?? network;
 
-  // Register the EVM scheme using the correct API
-  try {
-    const { registerExactEvmScheme } = await import("@x402/evm/exact/client");
-    registerExactEvmScheme(client, { signer: account });
-  } catch (e1) {
-    // Fallback to @x402/evm exports if exact/client doesn't exist
-    try {
-      const { ExactEvmScheme } = await import("@x402/evm");
-      client.register("eip155:*", new ExactEvmScheme(account));
-    } catch (e2) {
-      // Last resort: try the old way
-      const ExactEvmSchemeCtor = exactEvmSchemeCtor || (await import("@x402/evm")).ExactEvmScheme;
-      if (ExactEvmSchemeCtor) {
-        client.register("eip155:*", new ExactEvmSchemeCtor(account));
-      }
-    }
+  client.register(network, scheme);
+  if (caipNetwork !== network) {
+    client.register(caipNetwork, scheme);
   }
+  client.register("eip155:*", scheme);
 
-  // Register V1 networks (base, base-sepolia)
-  if (typeof client.registerV1 === "function") {
-    const networks = network ? [network] : V1_NETWORKS;
-    for (const v1Network of networks) {
-      try {
-        const { registerExactEvmScheme } = await import("@x402/evm/exact/client");
-        registerExactEvmScheme(client, { signer: account, network: v1Network });
-      } catch {
-        // ignore
-      }
-    }
+  if (typeof client.registerV1 === "function" && network in NETWORK_CAIP_IDS) {
+    const ExactEvmSchemeV1 = await resolveExactEvmSchemeV1Ctor(exactEvmSchemeV1Ctor);
+    client.registerV1(network, new ExactEvmSchemeV1(account));
   }
 
   return client;

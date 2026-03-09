@@ -3,6 +3,35 @@ import test from "node:test";
 
 import { buyListing, createBuyAction } from "./bin/buy.js";
 
+class FakeExactEvmScheme {
+  constructor(account) {
+    this.account = account;
+  }
+}
+
+class FakeExactEvmSchemeV1 {
+  constructor(account) {
+    this.account = account;
+  }
+}
+
+class FakeX402Client {
+  constructor() {
+    this.registerCalls = [];
+    this.registerV1Calls = [];
+  }
+
+  register(network, scheme) {
+    this.registerCalls.push({ network, scheme });
+    return this;
+  }
+
+  registerV1(network, scheme) {
+    this.registerV1Calls.push({ network, scheme });
+    return this;
+  }
+}
+
 test("buyListing calls paid GET Vercel proxy /api/listings/<id>/content and writes downloaded content", async () => {
   const calls = {
     privateKeyToAccount: [],
@@ -39,6 +68,9 @@ test("buyListing calls paid GET Vercel proxy /api/listings/<id>/content and writ
           );
         };
       },
+      x402ClientCtor: FakeX402Client,
+      exactEvmSchemeCtor: FakeExactEvmScheme,
+      exactEvmSchemeV1Ctor: FakeExactEvmSchemeV1,
       fsModule: {
         writeFile: async (filePath, content, encoding) => {
           calls.writes.push({ filePath, content, encoding });
@@ -53,9 +85,14 @@ test("buyListing calls paid GET Vercel proxy /api/listings/<id>/content and writ
   assert.equal(result.outputPath, "listing_1.txt");
   assert.deepEqual(calls.privateKeyToAccount, ["0xprivate"]);
   assert.equal(calls.wrapFetchWithPayment.length, 1);
-  assert.equal(
-    calls.wrapFetchWithPayment[0].options.network,
-    "base",
+  assert.equal(calls.wrapFetchWithPayment[0].options instanceof FakeX402Client, true);
+  assert.deepEqual(
+    calls.wrapFetchWithPayment[0].options.registerCalls.map(({ network }) => network),
+    ["base", "eip155:8453", "eip155:*"],
+  );
+  assert.deepEqual(
+    calls.wrapFetchWithPayment[0].options.registerV1Calls.map(({ network }) => network),
+    ["base"],
   );
   assert.equal(calls.paidFetch.length, 1);
   assert.equal(
@@ -97,6 +134,9 @@ test("buyListing supports inline content and --output override", async () => {
             headers: { "content-type": "application/json" },
           });
       },
+      x402ClientCtor: FakeX402Client,
+      exactEvmSchemeCtor: FakeExactEvmScheme,
+      exactEvmSchemeV1Ctor: FakeExactEvmSchemeV1,
       fsModule: {
         writeFile: async (filePath, content, encoding) => {
           writes.push({ filePath, content, encoding });
@@ -133,13 +173,23 @@ test("buyListing uses Base Sepolia network when --testnet is enabled", async () 
             },
           );
       },
+      x402ClientCtor: FakeX402Client,
+      exactEvmSchemeCtor: FakeExactEvmScheme,
+      exactEvmSchemeV1Ctor: FakeExactEvmSchemeV1,
       fsModule: { writeFile: async () => {} },
       recordPurchasedContent: async () => {},
     },
   );
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].network, "base-sepolia");
+  assert.deepEqual(
+    calls[0].registerCalls.map(({ network }) => network),
+    ["base-sepolia", "eip155:84532", "eip155:*"],
+  );
+  assert.deepEqual(
+    calls[0].registerV1Calls.map(({ network }) => network),
+    ["base-sepolia"],
+  );
 });
 
 test("buyListing uses Base Sepolia when AGENTMART_TESTNET=true", async () => {
@@ -164,13 +214,23 @@ test("buyListing uses Base Sepolia when AGENTMART_TESTNET=true", async () => {
             },
           );
       },
+      x402ClientCtor: FakeX402Client,
+      exactEvmSchemeCtor: FakeExactEvmScheme,
+      exactEvmSchemeV1Ctor: FakeExactEvmSchemeV1,
       fsModule: { writeFile: async () => {} },
       recordPurchasedContent: async () => {},
     },
   );
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].network, "base-sepolia");
+  assert.deepEqual(
+    calls[0].registerCalls.map(({ network }) => network),
+    ["base-sepolia", "eip155:84532", "eip155:*"],
+  );
+  assert.deepEqual(
+    calls[0].registerV1Calls.map(({ network }) => network),
+    ["base-sepolia"],
+  );
 });
 
 test("buyListing validates required inputs and private key", async () => {
@@ -195,6 +255,9 @@ test("buyListing surfaces API and download errors", async () => {
             headers: { "content-type": "application/json" },
           });
       },
+      x402ClientCtor: FakeX402Client,
+      exactEvmSchemeCtor: FakeExactEvmScheme,
+      exactEvmSchemeV1Ctor: FakeExactEvmSchemeV1,
     }),
     /Buy failed \(402\): Payment required/,
   );
@@ -214,6 +277,9 @@ test("buyListing surfaces API and download errors", async () => {
             },
           );
       },
+      x402ClientCtor: FakeX402Client,
+      exactEvmSchemeCtor: FakeExactEvmScheme,
+      exactEvmSchemeV1Ctor: FakeExactEvmSchemeV1,
     }),
     /Failed to download content \(404\)/,
   );
@@ -230,6 +296,9 @@ test("buyListing surfaces paid fetch parse failures as payment errors", async ()
           throw new Error("Unable to parse payment requirements");
         };
       },
+      x402ClientCtor: FakeX402Client,
+      exactEvmSchemeCtor: FakeExactEvmScheme,
+      exactEvmSchemeV1Ctor: FakeExactEvmSchemeV1,
     }),
     (error) => {
       assert.equal(error instanceof Error, true);
@@ -257,6 +326,9 @@ test("createBuyAction logs saved path", async () => {
           },
         );
     },
+    x402ClientCtor: FakeX402Client,
+    exactEvmSchemeCtor: FakeExactEvmScheme,
+    exactEvmSchemeV1Ctor: FakeExactEvmSchemeV1,
     fsModule: { writeFile: async () => {} },
     recordPurchasedContent: async () => {},
   });

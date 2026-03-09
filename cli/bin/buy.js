@@ -21,6 +21,7 @@ async function buildPaymentFetch({
   privateKeyToAccount,
   x402ClientCtor,
   exactEvmSchemeCtor,
+  exactEvmSchemeV1Ctor,
 }) {
   if (typeof fetchImpl !== "function") {
     throw new Error("Fetch implementation is unavailable");
@@ -42,6 +43,7 @@ async function buildPaymentFetch({
     network,
     x402ClientCtor,
     exactEvmSchemeCtor,
+    exactEvmSchemeV1Ctor,
   });
   return wrapPayment(fetchImpl, paymentClient);
 }
@@ -55,7 +57,13 @@ function formatPaidFetchError(error) {
 }
 
 async function parseResponseError(response) {
-  const text = await response.text();
+  let text = "";
+  try {
+    text = await response.text();
+  } catch {
+    return "Unknown error";
+  }
+
   try {
     const payload = JSON.parse(text);
     if (typeof payload?.error === "string" && payload.error.length > 0) {
@@ -109,6 +117,7 @@ export async function buyListing(listingIdInput, options = {}, deps = {}) {
     privateKeyToAccount: deps.privateKeyToAccount,
     x402ClientCtor: deps.x402ClientCtor,
     exactEvmSchemeCtor: deps.exactEvmSchemeCtor,
+    exactEvmSchemeV1Ctor: deps.exactEvmSchemeV1Ctor,
   });
 
   let response;
