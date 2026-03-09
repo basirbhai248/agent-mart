@@ -1,20 +1,5 @@
 import { httpActionGeneric as httpAction, httpRouter } from "convex/server";
-
-import {
-  createCreator,
-  createListing,
-  recordPurchase,
-  updateCreatorApiKey,
-} from "./mutations.ts";
-import {
-  getCreatorByApiKey,
-  getCreatorByWallet,
-  getCreatorListings,
-  getListing,
-  getListings,
-  getPurchaseByListingAndBuyerWallet,
-  searchListings,
-} from "./queries.ts";
+import { api } from "./_generated/api.js";
 import { buildRecoveryMessage, recoverWalletAddress } from "./wallet.ts";
 
 const http = httpRouter();
@@ -40,13 +25,15 @@ export const registerCreator = httpAction(async (ctx, request) => {
     return json({ error: "wallet, displayName, and bio are required" }, 400);
   }
 
-  const existingCreator = await ctx.runQuery(getCreatorByWallet, { wallet });
+  const existingCreator = await ctx.runQuery(api.queries.getCreatorByWallet, {
+    wallet,
+  });
   if (existingCreator) {
     return json({ error: "Creator already registered for wallet" }, 409);
   }
 
   const apiKey = crypto.randomUUID();
-  const creatorId = await ctx.runMutation(createCreator, {
+  const creatorId = await ctx.runMutation(api.mutations.createCreator, {
     wallet,
     displayName,
     bio,
@@ -79,7 +66,9 @@ export const recoverCreator = httpAction(async (ctx, request) => {
     return json({ error: "wallet and signature are required" }, 400);
   }
 
-  const existingCreator = await ctx.runQuery(getCreatorByWallet, { wallet });
+  const existingCreator = await ctx.runQuery(api.queries.getCreatorByWallet, {
+    wallet,
+  });
   if (!existingCreator) {
     return json({ error: "Creator not found for wallet" }, 404);
   }
@@ -93,7 +82,7 @@ export const recoverCreator = httpAction(async (ctx, request) => {
   }
 
   const apiKey = crypto.randomUUID();
-  await ctx.runMutation(updateCreatorApiKey, {
+  await ctx.runMutation(api.mutations.updateCreatorApiKey, {
     creatorId: existingCreator._id,
     apiKey,
   });
@@ -111,7 +100,9 @@ export const createListingRoute = httpAction(async (ctx, request) => {
     return json({ error: "API key required" }, 401);
   }
 
-  const creator = await ctx.runQuery(getCreatorByApiKey, { apiKey });
+  const creator = await ctx.runQuery(api.queries.getCreatorByApiKey, {
+    apiKey,
+  });
   if (!creator) {
     return json({ error: "Invalid API key" }, 401);
   }
@@ -142,7 +133,7 @@ export const createListingRoute = httpAction(async (ctx, request) => {
     );
   }
 
-  const listingId = await ctx.runMutation(createListing, {
+  const listingId = await ctx.runMutation(api.mutations.createListing, {
     creatorId: creator._id,
     title,
     description,
@@ -158,7 +149,7 @@ export const listListingsRoute = httpAction(async (ctx, request) => {
     return json({ error: "Method not allowed" }, 405);
   }
 
-  const listings = await ctx.runQuery(getListings, {});
+  const listings = await ctx.runQuery(api.queries.getListings, {});
   return json(listings, 200);
 });
 
@@ -167,7 +158,7 @@ export const homepageRoute = httpAction(async (ctx, request) => {
     return json({ error: "Method not allowed" }, 405);
   }
 
-  const listings = await ctx.runQuery(getListings, {});
+  const listings = await ctx.runQuery(api.queries.getListings, {});
   const featuredListings = listings
     .slice()
     .sort((a, b) => b.createdAt - a.createdAt)
@@ -188,12 +179,14 @@ export const creatorProfilePageRoute = httpAction(async (ctx, request) => {
     return json({ error: "Wallet is required" }, 400);
   }
 
-  const creator = await ctx.runQuery(getCreatorByWallet, { wallet });
+  const creator = await ctx.runQuery(api.queries.getCreatorByWallet, {
+    wallet,
+  });
   if (!creator) {
     return html(renderCreatorNotFound(wallet), 404);
   }
 
-  const listings = await ctx.runQuery(getCreatorListings, {
+  const listings = await ctx.runQuery(api.queries.getCreatorListings, {
     creatorId: creator._id,
   });
 
@@ -215,7 +208,7 @@ export const searchListingsRoute = httpAction(async (ctx, request) => {
   }
 
   const query = new URL(request.url).searchParams.get("q") ?? "";
-  const listings = await ctx.runQuery(searchListings, { query });
+  const listings = await ctx.runQuery(api.queries.searchListings, { query });
   return json(listings, 200);
 });
 
@@ -225,7 +218,7 @@ export const searchPageRoute = httpAction(async (ctx, request) => {
   }
 
   const query = new URL(request.url).searchParams.get("q") ?? "";
-  const listings = await ctx.runQuery(searchListings, { query });
+  const listings = await ctx.runQuery(api.queries.searchListings, { query });
   return html(renderSearchResultsPage(query, listings), 200);
 });
 
@@ -239,12 +232,14 @@ export const getCreatorRoute = httpAction(async (ctx, request) => {
     return json({ error: "Wallet is required" }, 400);
   }
 
-  const creator = await ctx.runQuery(getCreatorByWallet, { wallet });
+  const creator = await ctx.runQuery(api.queries.getCreatorByWallet, {
+    wallet,
+  });
   if (!creator) {
     return json({ error: "Creator not found" }, 404);
   }
 
-  const listings = await ctx.runQuery(getCreatorListings, {
+  const listings = await ctx.runQuery(api.queries.getCreatorListings, {
     creatorId: creator._id,
   });
 
@@ -274,7 +269,9 @@ export const getMeRoute = httpAction(async (ctx, request) => {
     return json({ error: "API key required" }, 401);
   }
 
-  const creator = await ctx.runQuery(getCreatorByApiKey, { apiKey });
+  const creator = await ctx.runQuery(api.queries.getCreatorByApiKey, {
+    apiKey,
+  });
   if (!creator) {
     return json({ error: "Invalid API key" }, 401);
   }
@@ -298,7 +295,7 @@ export const getListingRoute = httpAction(async (ctx, request) => {
     return json({ error: "Listing id is required" }, 400);
   }
 
-  const listing = await ctx.runQuery(getListing, { listingId });
+  const listing = await ctx.runQuery(api.queries.getListing, { listingId });
   if (!listing) {
     return json({ error: "Listing not found" }, 404);
   }
@@ -316,7 +313,7 @@ export const getListingContentRoute = httpAction(async (ctx, request) => {
     return json({ error: "Listing id is required" }, 400);
   }
 
-  const listing = await ctx.runQuery(getListing, { listingId });
+  const listing = await ctx.runQuery(api.queries.getListing, { listingId });
   if (!listing) {
     return json({ error: "Listing not found" }, 404);
   }
@@ -324,7 +321,7 @@ export const getListingContentRoute = httpAction(async (ctx, request) => {
   const buyerWallet = asNonEmptyString(request.headers.get("x-buyer-wallet"));
   if (buyerWallet) {
     const existingPurchase = await ctx.runQuery(
-      getPurchaseByListingAndBuyerWallet,
+      api.queries.getPurchaseByListingAndBuyerWallet,
       {
         listingId,
         buyerWallet,
@@ -337,7 +334,7 @@ export const getListingContentRoute = httpAction(async (ctx, request) => {
 
   const txHash = asNonEmptyString(request.headers.get("x-payment-tx"));
   if (buyerWallet && txHash) {
-    await ctx.runMutation(recordPurchase, {
+    await ctx.runMutation(api.mutations.recordPurchase, {
       listingId,
       buyerWallet,
       amountPaid: listing.priceUsdc,

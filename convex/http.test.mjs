@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { getFunctionName } from "convex/server";
+import { api } from "./_generated/api.js";
 
 const { registerCreator } = await import("./http.ts");
 const { recoverCreator } = await import("./http.ts");
@@ -15,6 +17,10 @@ const { getListingRoute } = await import("./http.ts");
 const { getListingContentRoute } = await import("./http.ts");
 const { buildRecoveryMessage, privateKeyToWalletAddress, signRecoveryMessage } =
   await import("./wallet.ts");
+
+function assertFunctionRef(actualRef, expectedRef) {
+  assert.equal(getFunctionName(actualRef), getFunctionName(expectedRef));
+}
 
 test("registerCreator returns 400 for invalid JSON", async () => {
   const ctx = {
@@ -133,9 +139,11 @@ test("registerCreator creates creator and returns api key", async () => {
     });
 
     assert.equal(queryCalls.length, 1);
+    assertFunctionRef(queryCalls[0].ref, api.queries.getCreatorByWallet);
     assert.deepEqual(queryCalls[0].args, { wallet: "0xabc" });
 
     assert.equal(mutationCalls.length, 1);
+    assertFunctionRef(mutationCalls[0].ref, api.mutations.createCreator);
     assert.deepEqual(mutationCalls[0].args, {
       wallet: "0xabc",
       displayName: "Alice",
@@ -294,8 +302,10 @@ test("recoverCreator rotates api key for valid signature", async () => {
       apiKey: "rotated-key-123",
     });
     assert.equal(queryCalls.length, 1);
+    assertFunctionRef(queryCalls[0].ref, api.queries.getCreatorByWallet);
     assert.deepEqual(queryCalls[0].args, { wallet });
     assert.equal(mutationCalls.length, 1);
+    assertFunctionRef(mutationCalls[0].ref, api.mutations.updateCreatorApiKey);
     assert.deepEqual(mutationCalls[0].args, {
       creatorId: "creator_1",
       apiKey: "rotated-key-123",
@@ -442,8 +452,10 @@ test("createListingRoute creates listing for valid API key and payload", async (
   assert.equal(response.status, 201);
   assert.deepEqual(await response.json(), { listingId: "listing_1" });
   assert.equal(queryCalls.length, 1);
+  assertFunctionRef(queryCalls[0].ref, api.queries.getCreatorByApiKey);
   assert.deepEqual(queryCalls[0].args, { apiKey: "key_123" });
   assert.equal(mutationCalls.length, 1);
+  assertFunctionRef(mutationCalls[0].ref, api.mutations.createListing);
   assert.deepEqual(mutationCalls[0].args, {
     creatorId: "creator_1",
     title: "Alpha",
@@ -495,6 +507,7 @@ test("listListingsRoute returns all listings", async () => {
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), listings);
   assert.equal(queryCalls.length, 1);
+  assertFunctionRef(queryCalls[0].ref, api.queries.getListings);
   assert.deepEqual(queryCalls[0].args, {});
 });
 
@@ -764,6 +777,7 @@ test("searchListingsRoute returns matching listings", async () => {
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), listings);
   assert.equal(queryCalls.length, 1);
+  assertFunctionRef(queryCalls[0].ref, api.queries.searchListings);
   assert.deepEqual(queryCalls[0].args, { query: " alpha " });
 });
 
@@ -959,7 +973,9 @@ test("getCreatorRoute returns creator profile and listings", async () => {
     listings,
   });
   assert.equal(queryCalls.length, 2);
+  assertFunctionRef(queryCalls[0].ref, api.queries.getCreatorByWallet);
   assert.deepEqual(queryCalls[0].args, { wallet: "0xabc" });
+  assertFunctionRef(queryCalls[1].ref, api.queries.getCreatorListings);
   assert.deepEqual(queryCalls[1].args, { creatorId: "creator_1" });
 });
 
@@ -1099,6 +1115,7 @@ test("getListingRoute returns listing metadata by id", async () => {
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), listing);
   assert.equal(queryCalls.length, 1);
+  assertFunctionRef(queryCalls[0].ref, api.queries.getListing);
   assert.deepEqual(queryCalls[0].args, { listingId: "listing_1" });
 });
 
@@ -1248,7 +1265,12 @@ test("getListingContentRoute returns content without payment when already purcha
     contentUrl: "https://cdn.example/file_1",
   });
   assert.equal(queryCalls.length, 2);
+  assertFunctionRef(queryCalls[0].ref, api.queries.getListing);
   assert.deepEqual(queryCalls[0].args, { listingId: "listing_1" });
+  assertFunctionRef(
+    queryCalls[1].ref,
+    api.queries.getPurchaseByListingAndBuyerWallet,
+  );
   assert.deepEqual(queryCalls[1].args, {
     listingId: "listing_1",
     buyerWallet: "0xbuyer",
@@ -1297,12 +1319,18 @@ test("getListingContentRoute records purchase and returns content for paid reque
     contentUrl: null,
   });
   assert.equal(queryCalls.length, 2);
+  assertFunctionRef(queryCalls[0].ref, api.queries.getListing);
   assert.deepEqual(queryCalls[0].args, { listingId: "listing_1" });
+  assertFunctionRef(
+    queryCalls[1].ref,
+    api.queries.getPurchaseByListingAndBuyerWallet,
+  );
   assert.deepEqual(queryCalls[1].args, {
     listingId: "listing_1",
     buyerWallet: "0xbuyer",
   });
   assert.equal(mutationCalls.length, 1);
+  assertFunctionRef(mutationCalls[0].ref, api.mutations.recordPurchase);
   assert.deepEqual(mutationCalls[0].args, {
     listingId: "listing_1",
     buyerWallet: "0xbuyer",
