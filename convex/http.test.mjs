@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { getFunctionName } from "convex/server";
+import { x402Client, x402HTTPClient } from "@x402/core/client";
 import { api } from "./_generated/api.js";
 
 const { registerCreator } = await import("./http.ts");
@@ -1303,8 +1304,8 @@ test("getListingContentRoute returns 404 when listing does not exist", async () 
 
 test("getListingContentRoute returns 402 with payment requirements when unpaid", async () => {
   const queryCalls = [];
-  const originalPlatformWallet = process.env.PLATFORM_WALLET;
-  process.env.PLATFORM_WALLET = "0xplatform";
+  const originalPlatformWalletAddress = process.env.PLATFORM_WALLET_ADDRESS;
+  process.env.PLATFORM_WALLET_ADDRESS = "0xplatform";
 
   try {
     const ctx = {
@@ -1329,84 +1330,91 @@ test("getListingContentRoute returns 402 with payment requirements when unpaid",
     const response = await getListingContentRoute._handler(ctx, request);
 
     assert.equal(response.status, 402);
-    assert.deepEqual(await response.json(), {
-      error: "Payment required",
-      payment: {
-        scheme: "x402",
-        network: "base",
-        facilitator: null,
-        currency: "USDC",
-        amountUsdc: 25,
-        destinationWallet: "0xplatform",
-      },
+    const responseBody = await response.clone().json();
+    assert.deepEqual(responseBody, {
+      paymentRequirements: [
+        {
+          scheme: "exact",
+          network: "eip155:84532",
+          maxAmountRequired: "25000000",
+          resource: "https://example.com/api/listing/content?id=listing_1",
+          description: "Access listing content",
+          mimeType: "application/json",
+          payTo: "0xplatform",
+          maxTimeoutSeconds: 300,
+          asset: "0x0000000000000000000000000000000000000000",
+          extra: {
+            name: "USDC",
+            version: "2",
+          },
+        },
+      ],
+      error: "X-PAYMENT-REQUIRED",
     });
+    const x402HttpClient = new x402HTTPClient(new x402Client());
+    const parsedByClient = x402HttpClient.getPaymentRequiredResponse(
+      (name) => response.headers.get(name),
+      responseBody,
+    );
+    assert.equal(parsedByClient.x402Version, 2);
+    assert.equal(parsedByClient.accepts[0].network, "eip155:84532");
+    assert.equal(parsedByClient.accepts[0].amount, "25000000");
+    const paymentRequired = response.headers.get("payment-required");
+    assert.ok(paymentRequired);
+    const parsed = JSON.parse(
+      Buffer.from(paymentRequired, "base64").toString("utf8"),
+    );
+    assert.equal(parsed.x402Version, 2);
+    assert.equal(parsed.error, "Payment required");
+    assert.equal(parsed.accepts[0].scheme, "exact");
+    assert.equal(parsed.accepts[0].network, "eip155:84532");
+    assert.equal(parsed.accepts[0].amount, "25000000");
+    assert.equal(parsed.accepts[0].payTo, "0xplatform");
     assert.equal(queryCalls.length, 1);
     assert.deepEqual(queryCalls[0].args, { listingId: "listing_1" });
   } finally {
-    if (originalPlatformWallet === undefined) {
-      delete process.env.PLATFORM_WALLET;
+    if (originalPlatformWalletAddress === undefined) {
+      delete process.env.PLATFORM_WALLET_ADDRESS;
     } else {
-      process.env.PLATFORM_WALLET = originalPlatformWallet;
+      process.env.PLATFORM_WALLET_ADDRESS = originalPlatformWalletAddress;
     }
   }
 });
 
-test("getListingContentRoute returns Base Sepolia payment requirements on testnet", async () => {
-  const queryCalls = [];
-  const originalPlatformWallet = process.env.PLATFORM_WALLET;
-  const originalNetwork = process.env.NEXT_PUBLIC_NETWORK;
-  process.env.PLATFORM_WALLET = "0xplatform";
-  process.env.NEXT_PUBLIC_NETWORK = "testnet";
+test("getListingContentRoute returns content when trusted x402 header is present", async () => {
+  const listing = {
+    _id: "listing_1",
+    priceUsdc: 25,
+    fileStorageId: "file_1",
+  };
+  const ctx = {
+    runQuery: async () => listing,
+    runMutation: async () => "purchase_1",
+    storage: {
+      getUrl: async (id) => `https://cdn.example/${id}`,
+    },
+  };
 
-  try {
-    const ctx = {
-      runQuery: async (ref, args) => {
-        queryCalls.push({ ref, args });
-        return {
-          _id: "listing_1",
-          priceUsdc: 25,
-          fileStorageId: "file_1",
-        };
+  const request = new Request(
+    "https://example.com/api/listing/content?id=listing_1",
+    {
+      method: "GET",
+      headers: {
+        "x-x402-verified": "1",
       },
-      runMutation: async () => "purchase_1",
-    };
+    },
+  );
 
-    const request = new Request(
-      "https://example.com/api/listing/content?id=listing_1",
-      {
-        method: "GET",
-      },
-    );
+  const response = await getListingContentRoute._handler(ctx, request);
 
-    const response = await getListingContentRoute._handler(ctx, request);
-
-    assert.equal(response.status, 402);
-    assert.deepEqual(await response.json(), {
-      error: "Payment required",
-      payment: {
-        scheme: "x402",
-        network: "base-sepolia",
-        facilitator: "https://x402.org/facilitator",
-        currency: "USDC",
-        amountUsdc: 25,
-        destinationWallet: "0xplatform",
-      },
-    });
-    assert.equal(queryCalls.length, 1);
-    assert.deepEqual(queryCalls[0].args, { listingId: "listing_1" });
-  } finally {
-    if (originalPlatformWallet === undefined) {
-      delete process.env.PLATFORM_WALLET;
-    } else {
-      process.env.PLATFORM_WALLET = originalPlatformWallet;
-    }
-
-    if (originalNetwork === undefined) {
-      delete process.env.NEXT_PUBLIC_NETWORK;
-    } else {
-      process.env.NEXT_PUBLIC_NETWORK = originalNetwork;
-    }
-  }
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    listingId: "listing_1",
+    buyerWallet: "x402",
+    hasPurchased: false,
+    fileStorageId: "file_1",
+    contentUrl: "https://cdn.example/file_1",
+  });
 });
 
 test("getListingContentRoute returns content without payment when already purchased", async () => {

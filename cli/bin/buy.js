@@ -2,11 +2,10 @@ import fs from "node:fs/promises";
 
 import { resolvePrivateKey } from "./config.js";
 import { recordPurchasedContent } from "./purchases.js";
-import {
-  DEFAULT_API_URL,
-  normalizeRequiredOption,
-  resolvePaymentNetwork,
-} from "./register.js";
+import { normalizeRequiredOption, resolveApiUrl } from "./register.js";
+
+const BASE_MAINNET_NETWORK = "eip155:8453";
+const BASE_SEPOLIA_NETWORK = "eip155:84532";
 
 function defaultOutputPath(listingId) {
   return `${listingId.replace(/[^a-zA-Z0-9._-]/g, "_")}.txt`;
@@ -14,7 +13,7 @@ function defaultOutputPath(listingId) {
 
 async function buildPaymentFetch({
   privateKey,
-  network,
+  testnet = false,
   fetchImpl = globalThis.fetch,
   wrapFetchWithPayment,
   privateKeyToAccount,
@@ -34,7 +33,10 @@ async function buildPaymentFetch({
   }
 
   const account = toAccount(privateKey);
-  return wrapPayment(fetchImpl, { account, network });
+  return wrapPayment(fetchImpl, {
+    account,
+    network: testnet ? BASE_SEPOLIA_NETWORK : BASE_MAINNET_NETWORK,
+  });
 }
 
 async function parseResponseError(response) {
@@ -74,6 +76,7 @@ async function downloadListingContent(payload, deps = {}) {
 
 export async function buyListing(listingIdInput, options = {}, deps = {}) {
   const listingId = normalizeRequiredOption(listingIdInput, "<listing-id>");
+  const apiUrl = resolveApiUrl({ apiUrl: options.apiUrl, env: deps.env });
 
   const getPrivateKey = deps.resolvePrivateKey ?? resolvePrivateKey;
   const privateKey = await getPrivateKey();
@@ -85,7 +88,7 @@ export async function buyListing(listingIdInput, options = {}, deps = {}) {
 
   const paidFetch = await buildPaymentFetch({
     privateKey,
-    network: resolvePaymentNetwork({ testnet: options.testnet, env: deps.env }),
+    testnet: options.testnet === true,
     fetchImpl: deps.fetchImpl,
     wrapFetchWithPayment: deps.wrapFetchWithPayment,
     privateKeyToAccount: deps.privateKeyToAccount,
@@ -94,7 +97,7 @@ export async function buyListing(listingIdInput, options = {}, deps = {}) {
   const response = await paidFetch(
     new URL(
       `/api/listings/${encodeURIComponent(listingId)}/content`,
-      DEFAULT_API_URL,
+      apiUrl,
     ),
     { method: "GET" },
   );

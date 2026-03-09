@@ -4,7 +4,6 @@ import type { Id } from "./_generated/dataModel.js";
 import { buildRecoveryMessage, recoverWalletAddress } from "./wallet.ts";
 
 const http = httpRouter();
-const TESTNET_FACILITATOR_URL = "https://x402.org/facilitator";
 
 export const registerCreator = httpAction(async (ctx, request) => {
   if (request.method !== "POST") {
@@ -322,6 +321,10 @@ export const getListingContentRoute = httpAction(async (ctx, request) => {
     return json({ error: "Listing not found" }, 404);
   }
 
+  if (request.headers.get("x-x402-verified") === "1") {
+    return await listingContentJson(ctx, listing, "x402", false);
+  }
+
   const buyerWallet = asNonEmptyString(request.headers.get("x-buyer-wallet"));
   if (buyerWallet) {
     const existingPurchase = await ctx.runQuery(
@@ -348,37 +351,8 @@ export const getListingContentRoute = httpAction(async (ctx, request) => {
     return await listingContentJson(ctx, listing, buyerWallet, false);
   }
 
-  const isTestnet = isTestnetNetworkRequest(request);
-
-  return json(
-    {
-      error: "Payment required",
-      payment: {
-        scheme: "x402",
-        network: isTestnet ? "base-sepolia" : "base",
-        facilitator: isTestnet ? TESTNET_FACILITATOR_URL : null,
-        currency: "USDC",
-        amountUsdc: listing.priceUsdc,
-        destinationWallet: process.env.PLATFORM_WALLET ?? null,
-      },
-    },
-    402,
-  );
+  return paymentRequiredResponse(request.url, listing.priceUsdc);
 });
-
-function isTestnetNetworkRequest(request: Request): boolean {
-  const headerNetwork = asNonEmptyString(
-    request.headers.get("x-agentmart-network"),
-  );
-  if (headerNetwork?.toLowerCase() === "testnet") {
-    return true;
-  }
-
-  return (
-    process.env.NEXT_PUBLIC_NETWORK?.trim().toLowerCase() === "testnet" ||
-    process.env.CONVEX_TESTNET?.trim().toLowerCase() === "true"
-  );
-}
 
 http.route({
   path: "/",
@@ -489,6 +463,66 @@ function json(body: unknown, status: number): Response {
     status,
     headers: {
       "content-type": "application/json",
+    },
+  });
+}
+
+function paymentRequiredResponse(url: string, priceUsdc: number): Response {
+  const payTo =
+    process.env.PLATFORM_WALLET_ADDRESS?.trim() ??
+    process.env.PLATFORM_WALLET?.trim() ??
+    "";
+  const amount = Math.round(priceUsdc * 1_000_000).toString();
+  const paymentRequirement = {
+    scheme: "exact",
+    network: "eip155:84532",
+    amount,
+    asset: "0x0000000000000000000000000000000000000000",
+    payTo,
+    maxTimeoutSeconds: 300,
+    extra: {
+      name: "USDC",
+      version: 2,
+    },
+  };
+  const paymentRequired = {
+    x402Version: 2,
+    error: "Payment required",
+    resource: {
+      url,
+      description: "Access listing content",
+      mimeType: "application/json",
+    },
+    accepts: [paymentRequirement],
+  };
+  const responseBody = {
+    paymentRequirements: [
+      {
+        scheme: paymentRequirement.scheme,
+        network: paymentRequirement.network,
+        maxAmountRequired: paymentRequirement.amount,
+        resource: url,
+        description: "Access listing content",
+        mimeType: "application/json",
+        payTo: paymentRequirement.payTo,
+        maxTimeoutSeconds: paymentRequirement.maxTimeoutSeconds,
+        asset: paymentRequirement.asset,
+        extra: {
+          name: paymentRequirement.extra.name,
+          version: String(paymentRequirement.extra.version),
+        },
+      },
+    ],
+    error: "X-PAYMENT-REQUIRED",
+  };
+
+  return new Response(JSON.stringify(responseBody), {
+    status: 402,
+    headers: {
+      "content-type": "application/json",
+      "payment-required": Buffer.from(JSON.stringify(paymentRequired)).toString(
+        "base64",
+      ),
     },
   });
 }

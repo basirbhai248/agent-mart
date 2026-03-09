@@ -53,11 +53,14 @@ test("buyListing calls paid GET Vercel proxy /api/listings/<id>/content and writ
   assert.equal(result.outputPath, "listing_1.txt");
   assert.deepEqual(calls.privateKeyToAccount, ["0xprivate"]);
   assert.equal(calls.wrapFetchWithPayment.length, 1);
-  assert.equal(calls.wrapFetchWithPayment[0].options.network, "base");
+  assert.equal(
+    calls.wrapFetchWithPayment[0].options.network,
+    "eip155:8453",
+  );
   assert.equal(calls.paidFetch.length, 1);
   assert.equal(
     calls.paidFetch[0].url,
-    "https://agent-mart-beryl.vercel.app/api/listings/listing_1/content",
+    "https://override.example/api/listings/listing_1/content",
   );
   assert.equal(calls.paidFetch[0].init.method, "GET");
   assert.equal(calls.rawFetch.length, 1);
@@ -73,54 +76,6 @@ test("buyListing calls paid GET Vercel proxy /api/listings/<id>/content and writ
       content: "paid content",
     },
   ]);
-});
-
-test("buyListing uses Base Sepolia when --testnet flag or env var is set", async () => {
-  const calls = { wrapFetchWithPayment: [] };
-
-  await buyListing(
-    "listing_1",
-    { testnet: true },
-    {
-      resolvePrivateKey: async () => "0xprivate",
-      privateKeyToAccount: () => ({ address: "0xabc" }),
-      fetchImpl: async () => new Response("inline", { status: 200 }),
-      wrapFetchWithPayment: (_fetchImpl, options) => {
-        calls.wrapFetchWithPayment.push(options);
-        return async () =>
-          new Response(JSON.stringify({ content: "inline" }), {
-            status: 200,
-            headers: { "content-type": "application/json" },
-          });
-      },
-      fsModule: { writeFile: async () => {} },
-      recordPurchasedContent: async () => {},
-    },
-  );
-
-  await buyListing(
-    "listing_2",
-    {},
-    {
-      env: { AGENTMART_TESTNET: "true" },
-      resolvePrivateKey: async () => "0xprivate",
-      privateKeyToAccount: () => ({ address: "0xabc" }),
-      fetchImpl: async () => new Response("inline", { status: 200 }),
-      wrapFetchWithPayment: (_fetchImpl, options) => {
-        calls.wrapFetchWithPayment.push(options);
-        return async () =>
-          new Response(JSON.stringify({ content: "inline" }), {
-            status: 200,
-            headers: { "content-type": "application/json" },
-          });
-      },
-      fsModule: { writeFile: async () => {} },
-      recordPurchasedContent: async () => {},
-    },
-  );
-
-  assert.equal(calls.wrapFetchWithPayment[0].network, "base-sepolia");
-  assert.equal(calls.wrapFetchWithPayment[1].network, "base-sepolia");
 });
 
 test("buyListing supports inline content and --output override", async () => {
@@ -155,6 +110,36 @@ test("buyListing supports inline content and --output override", async () => {
   assert.deepEqual(writes, [
     { filePath: "./content.md", content: "inline content", encoding: "utf8" },
   ]);
+});
+
+test("buyListing uses Base Sepolia network when --testnet is enabled", async () => {
+  const calls = [];
+
+  await buyListing(
+    "listing_3",
+    { testnet: true },
+    {
+      resolvePrivateKey: async () => "0xprivate",
+      privateKeyToAccount: () => ({ address: "0xabc" }),
+      fetchImpl: async () => new Response("downloaded content", { status: 200 }),
+      wrapFetchWithPayment: (_fetchImpl, options) => {
+        calls.push(options);
+        return async () =>
+          new Response(
+            JSON.stringify({ contentUrl: "https://download.agentmart.dev/file_3" }),
+            {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            },
+          );
+      },
+      fsModule: { writeFile: async () => {} },
+      recordPurchasedContent: async () => {},
+    },
+  );
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].network, "eip155:84532");
 });
 
 test("buyListing validates required inputs and private key", async () => {

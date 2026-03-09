@@ -141,9 +141,13 @@ test("listing and creator route handlers target Convex query-param endpoints", a
     listingRoute,
     /\/api\/listing\?id=\$\{encodeURIComponent\(id\)\}/,
   );
+  assert.match(listingContentRoute, /withX402 as paymentMiddleware/);
+  assert.match(listingContentRoute, /getPlatformWalletAddress/);
+  assert.match(listingContentRoute, /listing\.priceUsdc/);
+  assert.match(listingContentRoute, /x-x402-verified/);
   assert.match(
     listingContentRoute,
-    /\/api\/listing\/content\?id=\$\{encodeURIComponent\(id\)\}/,
+    /\/api\/listing\/content\?id=\$\{encodeURIComponent\(listingId\)\}/,
   );
   assert.match(
     creatorRoute,
@@ -154,18 +158,22 @@ test("listing and creator route handlers target Convex query-param endpoints", a
 
 test("proxyToConvex preserves 402 responses for listing content", async (t) => {
   process.env.CONVEX_SITE_URL = "https://example.convex.cloud";
+  const encoded = Buffer.from(
+    JSON.stringify({
+      x402Version: 2,
+      error: "Payment required",
+      accepts: [{ scheme: "exact" }],
+    }),
+  ).toString("base64");
 
   globalThis.fetch = async () =>
-    new Response(
-      JSON.stringify({
-        error: "Payment required",
-        payment: { scheme: "x402", amountUsdc: 5 },
-      }),
-      {
-        status: 402,
-        headers: { "content-type": "application/json" },
+    new Response(JSON.stringify({ error: "Payment required" }), {
+      status: 402,
+      headers: {
+        "content-type": "application/json",
+        "payment-required": encoded,
       },
-    );
+    });
 
   t.after(() => {
     globalThis.fetch = originalFetch;
@@ -180,8 +188,9 @@ test("proxyToConvex preserves 402 responses for listing content", async (t) => {
   );
 
   assert.equal(response.status, 402);
+  assert.equal(response.headers.get("payment-required"), encoded);
   const payload = await response.json();
-  assert.equal(payload.payment.scheme, "x402");
+  assert.equal(payload.error, "Payment required");
 });
 
 test("proxyToConvex throws when CONVEX_SITE_URL is missing", async (t) => {

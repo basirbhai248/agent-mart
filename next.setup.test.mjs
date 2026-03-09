@@ -33,11 +33,12 @@ test("package scripts keep convex build while adding next lifecycle scripts", as
   assert.equal(pkg.scripts["build:convex"], "node scripts/build.mjs");
 });
 
-test("package dependencies include convex and server-side x402 integration", async () => {
+test("package dependencies include convex and x402 integration packages", async () => {
   const { default: pkg } = await import("./package.json", {
     with: { type: "json" },
   });
 
   assert.ok(pkg.dependencies.convex);
   assert.ok(pkg.dependencies["@x402/next"]);
+  assert.ok(pkg.dependencies["@x402/evm"]);
 });
