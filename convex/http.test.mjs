@@ -1165,6 +1165,38 @@ test("getListingRoute returns listing metadata by id", async () => {
   assert.deepEqual(queryCalls[0].args, { listingId: "listing_1" });
 });
 
+test("getListingRoute supports Convex-style listing ids from query params", async () => {
+  const listingId = "j975t0ed9q6pf43xetbnf78ytn82j1ha";
+  const queryCalls = [];
+  const listing = {
+    _id: listingId,
+    title: "Gamma",
+    description: "Convex listing id test",
+    priceUsdc: 9,
+  };
+  const ctx = {
+    runQuery: async (ref, args) => {
+      queryCalls.push({ ref, args });
+      return listing;
+    },
+  };
+
+  const request = new Request(
+    `https://example.com/api/listing?id=${encodeURIComponent(listingId)}`,
+    {
+      method: "GET",
+    },
+  );
+
+  const response = await getListingRoute._handler(ctx, request);
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), listing);
+  assert.equal(queryCalls.length, 1);
+  assertFunctionRef(queryCalls[0].ref, api.queries.getListing);
+  assert.deepEqual(queryCalls[0].args, { listingId });
+});
+
 test("getListingContentRoute returns 405 for non-GET methods", async () => {
   let queryCalled = false;
   const ctx = {
