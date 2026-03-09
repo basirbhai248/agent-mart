@@ -1173,7 +1173,7 @@ test("getListingContentRoute returns 405 for non-GET methods", async () => {
   };
 
   const request = new Request(
-    "https://example.com/api/listings/listing_1/content",
+    "https://example.com/api/listing/content?id=listing_1",
     {
       method: "POST",
     },
@@ -1186,7 +1186,7 @@ test("getListingContentRoute returns 405 for non-GET methods", async () => {
   assert.equal(queryCalled, false);
 });
 
-test("getListingContentRoute returns 400 when listing id is blank", async () => {
+test("getListingContentRoute returns 400 when listing id query is missing", async () => {
   let queryCalled = false;
   let mutationCalled = false;
   const ctx = {
@@ -1200,9 +1200,38 @@ test("getListingContentRoute returns 400 when listing id is blank", async () => 
     },
   };
 
-  const request = new Request("https://example.com/api/listings/%20/content", {
+  const request = new Request("https://example.com/api/listing/content", {
     method: "GET",
   });
+
+  const response = await getListingContentRoute._handler(ctx, request);
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "Listing id is required" });
+  assert.equal(queryCalled, false);
+  assert.equal(mutationCalled, false);
+});
+
+test("getListingContentRoute returns 400 when listing id query is blank", async () => {
+  let queryCalled = false;
+  let mutationCalled = false;
+  const ctx = {
+    runQuery: async () => {
+      queryCalled = true;
+      return null;
+    },
+    runMutation: async () => {
+      mutationCalled = true;
+      return "purchase_1";
+    },
+  };
+
+  const request = new Request(
+    "https://example.com/api/listing/content?id=%20",
+    {
+      method: "GET",
+    },
+  );
 
   const response = await getListingContentRoute._handler(ctx, request);
 
@@ -1223,7 +1252,7 @@ test("getListingContentRoute returns 404 when listing does not exist", async () 
   };
 
   const request = new Request(
-    "https://example.com/api/listings/listing_1/content",
+    "https://example.com/api/listing/content?id=listing_1",
     {
       method: "GET",
     },
@@ -1256,7 +1285,7 @@ test("getListingContentRoute returns 402 with payment requirements when unpaid",
     };
 
     const request = new Request(
-      "https://example.com/api/listings/listing_1/content",
+      "https://example.com/api/listing/content?id=listing_1",
       {
         method: "GET",
       },
@@ -1314,7 +1343,7 @@ test("getListingContentRoute returns content without payment when already purcha
   };
 
   const request = new Request(
-    "https://example.com/api/listings/listing_1/content",
+    "https://example.com/api/listing/content?id=listing_1",
     {
       method: "GET",
       headers: {
@@ -1367,7 +1396,7 @@ test("getListingContentRoute records purchase and returns content for paid reque
   };
 
   const request = new Request(
-    "https://example.com/api/listings/listing_1/content",
+    "https://example.com/api/listing/content?id=listing_1",
     {
       method: "GET",
       headers: {

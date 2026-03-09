@@ -311,7 +311,7 @@ export const getListingContentRoute = httpAction(async (ctx, request) => {
     return json({ error: "Method not allowed" }, 405);
   }
 
-  const listingId = listingContentIdFromPathname(new URL(request.url).pathname);
+  const listingId = listingIdFromQuery(new URL(request.url).searchParams);
   if (!listingId) {
     return json({ error: "Listing id is required" }, 400);
   }
@@ -429,7 +429,7 @@ http.route({
 });
 
 http.route({
-  path: "/api/listings/:id/content",
+  path: "/api/listing/content",
   method: "GET",
   handler: getListingContentRoute,
 });
@@ -701,27 +701,6 @@ function listingIdFromQuery(
 ): Id<"listings"> | undefined {
   const listingId = asNonEmptyString(searchParams.get("id"));
   return listingId as Id<"listings"> | undefined;
-}
-
-function listingContentIdFromPathname(
-  pathname: string,
-): Id<"listings"> | undefined {
-  const segments = pathname.split("/").filter(Boolean);
-  if (
-    segments.length !== 4 ||
-    segments[0] !== "api" ||
-    segments[1] !== "listings" ||
-    segments[3] !== "content"
-  ) {
-    return undefined;
-  }
-
-  try {
-    const listingId = asNonEmptyString(decodeURIComponent(segments[2]));
-    return listingId as Id<"listings"> | undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 function creatorProfileWalletFromPathname(
