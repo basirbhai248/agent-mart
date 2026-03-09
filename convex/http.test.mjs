@@ -4,6 +4,7 @@ import test from "node:test";
 const { registerCreator } = await import("./http.ts");
 const { recoverCreator } = await import("./http.ts");
 const { createListingRoute } = await import("./http.ts");
+const { listListingsRoute } = await import("./http.ts");
 const { buildRecoveryMessage, privateKeyToWalletAddress, signRecoveryMessage } =
   await import("./wallet.ts");
 
@@ -442,4 +443,49 @@ test("createListingRoute creates listing for valid API key and payload", async (
     priceUsdc: 10,
     fileStorageId: "file_1",
   });
+});
+
+test("listListingsRoute returns 405 for non-GET methods", async () => {
+  let queryCalled = false;
+  const ctx = {
+    runQuery: async () => {
+      queryCalled = true;
+      return [];
+    },
+  };
+
+  const request = new Request("https://example.com/api/listings", {
+    method: "POST",
+  });
+
+  const response = await listListingsRoute._handler(ctx, request);
+
+  assert.equal(response.status, 405);
+  assert.deepEqual(await response.json(), { error: "Method not allowed" });
+  assert.equal(queryCalled, false);
+});
+
+test("listListingsRoute returns all listings", async () => {
+  const queryCalls = [];
+  const listings = [
+    { _id: "listing_1", title: "Alpha", priceUsdc: 10 },
+    { _id: "listing_2", title: "Beta", priceUsdc: 20 },
+  ];
+  const ctx = {
+    runQuery: async (ref, args) => {
+      queryCalls.push({ ref, args });
+      return listings;
+    },
+  };
+
+  const request = new Request("https://example.com/api/listings", {
+    method: "GET",
+  });
+
+  const response = await listListingsRoute._handler(ctx, request);
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), listings);
+  assert.equal(queryCalls.length, 1);
+  assert.deepEqual(queryCalls[0].args, {});
 });

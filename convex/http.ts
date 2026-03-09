@@ -5,7 +5,11 @@ import {
   createListing,
   updateCreatorApiKey,
 } from "./mutations.ts";
-import { getCreatorByApiKey, getCreatorByWallet } from "./queries.ts";
+import {
+  getCreatorByApiKey,
+  getCreatorByWallet,
+  getListings,
+} from "./queries.ts";
 import { buildRecoveryMessage, recoverWalletAddress } from "./wallet.ts";
 
 const http = httpRouter();
@@ -144,6 +148,15 @@ export const createListingRoute = httpAction(async (ctx, request) => {
   return json({ listingId }, 201);
 });
 
+export const listListingsRoute = httpAction(async (ctx, request) => {
+  if (request.method !== "GET") {
+    return json({ error: "Method not allowed" }, 405);
+  }
+
+  const listings = await ctx.runQuery(getListings, {});
+  return json(listings, 200);
+});
+
 http.route({
   path: "/api/register",
   method: "POST",
@@ -160,6 +173,12 @@ http.route({
   path: "/api/listings",
   method: "POST",
   handler: createListingRoute,
+});
+
+http.route({
+  path: "/api/listings",
+  method: "GET",
+  handler: listListingsRoute,
 });
 
 export default http;
