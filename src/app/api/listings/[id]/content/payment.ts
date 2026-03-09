@@ -104,3 +104,18 @@ export function buildPaymentRequiredHeader(
   };
   return Buffer.from(JSON.stringify(paymentRequired), "utf8").toString("base64");
 }
+
+export function buildPaymentRequiredHttpResponse(
+  requestUrl: string,
+  priceUsdc: number,
+  payTo: string,
+): { body: string; headers: Record<string, string>; status: number } {
+  return {
+    body: JSON.stringify({}),
+    status: 402,
+    headers: {
+      "Content-Type": "application/json",
+      "PAYMENT-REQUIRED": buildPaymentRequiredHeader(requestUrl, priceUsdc, payTo),
+    },
+  };
+}

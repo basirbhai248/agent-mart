@@ -3,7 +3,7 @@ import { withX402 as paymentMiddleware } from "@x402/next";
 
 import { proxyToConvex } from "../../../_lib/proxy";
 import {
-  buildPaymentRequiredHeader,
+  buildPaymentRequiredHttpResponse,
   fetchListing,
   getPlatformWalletAddress,
   listingIdFromPath,
@@ -29,23 +29,13 @@ export async function GET(request: Request): Promise<NextResponse> {
     }
 
     const payTo = getPlatformWalletAddress();
-    const challenge = buildPaymentRequiredHeader(
+    const response = buildPaymentRequiredHttpResponse(
       request.url,
       listing.priceUsdc,
       payTo,
     );
 
-    return NextResponse.json(
-      {
-        error: "Payment required",
-      },
-      {
-        status: 402,
-        headers: {
-          "payment-required": challenge,
-        },
-      },
-    );
+    return new NextResponse(response.body, response);
   }
 
   // If payment headers present, proxy to Convex

@@ -3,6 +3,7 @@ import test from "node:test";
 import { x402Client, x402HTTPClient } from "@x402/core/client";
 
 import {
+  buildPaymentRequiredHttpResponse,
   buildPaymentRequiredHeader,
   fetchListing,
   getPlatformWalletAddress,
@@ -96,6 +97,27 @@ test("buildPaymentRequiredHeader returns a parseable x402 PAYMENT-REQUIRED value
   assert.equal(parsed.accepts[0].network, "eip155:84532");
   assert.equal(parsed.accepts[0].amount, "3750000");
   assert.equal(parsed.accepts[0].payTo, "0xplatform");
+});
+
+test("buildPaymentRequiredHttpResponse matches middleware-style 402 response shape", () => {
+  const response = buildPaymentRequiredHttpResponse(
+    "https://localhost:3000/api/listings/listing_1/content",
+    1.25,
+    "0xplatform",
+  );
+  assert.equal(response.status, 402);
+  assert.equal(response.headers["Content-Type"], "application/json");
+  assert.ok(response.headers["PAYMENT-REQUIRED"]);
+
+  const parser = new x402HTTPClient(new x402Client());
+  const parsed = parser.getPaymentRequiredResponse((name) => {
+    return name.toLowerCase() === "payment-required"
+      ? response.headers["PAYMENT-REQUIRED"]
+      : null;
+  });
+  assert.equal(parsed.error, "Payment required");
+  assert.equal(parsed.accepts[0].amount, "1250000");
+  assert.deepEqual(JSON.parse(response.body), {});
 });
 
 test.after(() => {
