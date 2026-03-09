@@ -599,7 +599,7 @@ test("creatorProfilePageRoute returns 405 for non-GET methods", async () => {
     },
   };
 
-  const request = new Request("https://example.com/creator/0xabc", {
+  const request = new Request("https://example.com/creator?wallet=0xabc", {
     method: "POST",
   });
 
@@ -610,7 +610,7 @@ test("creatorProfilePageRoute returns 405 for non-GET methods", async () => {
   assert.equal(queryCalled, false);
 });
 
-test("creatorProfilePageRoute returns 400 when wallet path segment is missing", async () => {
+test("creatorProfilePageRoute returns 400 when wallet query param is missing", async () => {
   let queryCalled = false;
   const ctx = {
     runQuery: async () => {
@@ -639,7 +639,7 @@ test("creatorProfilePageRoute renders not found page when creator does not exist
     },
   };
 
-  const request = new Request("https://example.com/creator/0xmissing", {
+  const request = new Request("https://example.com/creator?wallet=0xmissing", {
     method: "GET",
   });
 
@@ -687,9 +687,12 @@ test("creatorProfilePageRoute renders creator profile and listings as HTML", asy
     },
   };
 
-  const request = new Request("https://example.com/creator/%200xabc%20", {
-    method: "GET",
-  });
+  const request = new Request(
+    "https://example.com/creator?wallet=%200xabc%20",
+    {
+      method: "GET",
+    },
+  );
 
   const response = await creatorProfilePageRoute._handler(ctx, request);
   const body = await response.text();
@@ -726,7 +729,7 @@ test("creatorProfilePageRoute shows empty listings state", async () => {
     },
   };
 
-  const request = new Request("https://example.com/creator/0xabc", {
+  const request = new Request("https://example.com/creator?wallet=0xabc", {
     method: "GET",
   });
 

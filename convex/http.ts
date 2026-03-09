@@ -173,8 +173,8 @@ export const creatorProfilePageRoute = httpAction(async (ctx, request) => {
     return json({ error: "Method not allowed" }, 405);
   }
 
-  const wallet = creatorProfileWalletFromPathname(
-    new URL(request.url).pathname,
+  const wallet = asNonEmptyString(
+    new URL(request.url).searchParams.get("wallet"),
   );
   if (!wallet) {
     return json({ error: "Wallet is required" }, 400);
@@ -369,7 +369,7 @@ http.route({
 });
 
 http.route({
-  path: "/creator/:wallet",
+  path: "/creator",
   method: "GET",
   handler: creatorProfilePageRoute,
 });
@@ -701,21 +701,6 @@ function listingIdFromQuery(
 ): Id<"listings"> | undefined {
   const listingId = asNonEmptyString(searchParams.get("id"));
   return listingId as Id<"listings"> | undefined;
-}
-
-function creatorProfileWalletFromPathname(
-  pathname: string,
-): string | undefined {
-  const segments = pathname.split("/").filter(Boolean);
-  if (segments.length !== 2 || segments[0] !== "creator") {
-    return undefined;
-  }
-
-  try {
-    return asNonEmptyString(decodeURIComponent(segments[1]));
-  } catch {
-    return undefined;
-  }
 }
 
 async function listingContentJson(
