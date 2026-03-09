@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 
 import { resolvePrivateKey } from "./config.js";
 import { recordPurchasedContent } from "./purchases.js";
-import { normalizeRequiredOption, resolveApiUrl } from "./register.js";
+import { DEFAULT_API_URL, normalizeRequiredOption } from "./register.js";
 
 function defaultOutputPath(listingId) {
   return `${listingId.replace(/[^a-zA-Z0-9._-]/g, "_")}.txt`;
@@ -69,7 +69,6 @@ async function downloadListingContent(payload, deps = {}) {
 
 export async function buyListing(listingIdInput, options = {}, deps = {}) {
   const listingId = normalizeRequiredOption(listingIdInput, "<listing-id>");
-  const apiUrl = resolveApiUrl({ apiUrl: options.apiUrl, env: deps.env });
 
   const getPrivateKey = deps.resolvePrivateKey ?? resolvePrivateKey;
   const privateKey = await getPrivateKey();
@@ -87,7 +86,10 @@ export async function buyListing(listingIdInput, options = {}, deps = {}) {
   });
 
   const response = await paidFetch(
-    new URL(`/api/listings/${encodeURIComponent(listingId)}/content`, apiUrl),
+    new URL(
+      `/api/listings/${encodeURIComponent(listingId)}/content`,
+      DEFAULT_API_URL,
+    ),
     { method: "GET" },
   );
 

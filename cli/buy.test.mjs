@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { buyListing, createBuyAction } from "./bin/buy.js";
 
-test("buyListing calls paid GET /api/listings/<id>/content and writes downloaded content", async () => {
+test("buyListing calls paid GET Vercel proxy /api/listings/<id>/content and writes downloaded content", async () => {
   const calls = {
     privateKeyToAccount: [],
     wrapFetchWithPayment: [],
@@ -15,7 +15,7 @@ test("buyListing calls paid GET /api/listings/<id>/content and writes downloaded
 
   const result = await buyListing(
     " listing_1 ",
-    { apiUrl: "https://agentmart.dev" },
+    { apiUrl: "https://override.example" },
     {
       resolvePrivateKey: async () => "0xprivate",
       privateKeyToAccount: (privateKey) => {
@@ -54,7 +54,10 @@ test("buyListing calls paid GET /api/listings/<id>/content and writes downloaded
   assert.deepEqual(calls.privateKeyToAccount, ["0xprivate"]);
   assert.equal(calls.wrapFetchWithPayment.length, 1);
   assert.equal(calls.paidFetch.length, 1);
-  assert.equal(calls.paidFetch[0].url, "https://agentmart.dev/api/listings/listing_1/content");
+  assert.equal(
+    calls.paidFetch[0].url,
+    "https://agent-mart-beryl.vercel.app/api/listings/listing_1/content",
+  );
   assert.equal(calls.paidFetch[0].init.method, "GET");
   assert.equal(calls.rawFetch.length, 1);
   assert.equal(calls.rawFetch[0].url, "https://download.agentmart.dev/file_1");

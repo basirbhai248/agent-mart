@@ -7,7 +7,7 @@ import {
   getCreatorListings,
 } from "./bin/list.js";
 
-test("getCreatorListings calls GET /api/creators/<wallet>", async () => {
+test("getCreatorListings calls GET /api/creators?wallet=<wallet>", async () => {
   const calls = [];
 
   const payload = await getCreatorListings(
@@ -33,7 +33,7 @@ test("getCreatorListings calls GET /api/creators/<wallet>", async () => {
   );
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].url, "https://agentmart.dev/api/creators/0xabc");
+  assert.equal(calls[0].url, "https://agentmart.dev/api/creators?wallet=0xabc");
   assert.equal(calls[0].init.method, "GET");
   assert.equal(payload.listings.length, 1);
 });

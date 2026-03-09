@@ -83,7 +83,7 @@ export async function getCreatorListings(options = {}, deps = {}) {
   }
 
   const response = await fetchImpl(
-    new URL(`/api/creators/${encodeURIComponent(creatorWallet)}`, apiUrl),
+    new URL(`/api/creators?wallet=${encodeURIComponent(creatorWallet)}`, apiUrl),
     {
       method: "GET",
     },

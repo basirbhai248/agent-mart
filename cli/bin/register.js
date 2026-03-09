@@ -1,6 +1,6 @@
 import { resolvePrivateKey, setApiKey } from "./config.js";
 
-const DEFAULT_API_URL = "https://agent-mart-beryl.vercel.app";
+export const DEFAULT_API_URL = "https://agent-mart-beryl.vercel.app";
 
 export function normalizeRequiredOption(value, optionName) {
   if (typeof value !== "string") {
