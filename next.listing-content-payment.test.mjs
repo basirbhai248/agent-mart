@@ -120,6 +120,31 @@ test("buildPaymentRequiredHttpResponse matches middleware-style 402 response sha
   assert.deepEqual(JSON.parse(response.body), {});
 });
 
+test("manual 402 HTTP response is parseable from fetch-style headers", () => {
+  const built = buildPaymentRequiredHttpResponse(
+    "https://localhost:3000/api/listings/listing_1/content",
+    2.5,
+    "0xplatform",
+  );
+  const httpResponse = new Response(built.body, {
+    status: built.status,
+    headers: built.headers,
+  });
+
+  const parser = new x402HTTPClient(new x402Client());
+  const parsed = parser.getPaymentRequiredResponse((name) =>
+    httpResponse.headers.get(name),
+  );
+
+  assert.equal(httpResponse.status, 402);
+  assert.equal(httpResponse.headers.get("content-type"), "application/json");
+  assert.equal(parsed.x402Version, 2);
+  assert.equal(parsed.error, "Payment required");
+  assert.equal(parsed.accepts[0].network, "eip155:84532");
+  assert.equal(parsed.accepts[0].amount, "2500000");
+  assert.equal(parsed.accepts[0].payTo, "0xplatform");
+});
+
 test.after(() => {
   globalThis.fetch = originalFetch;
   for (const key of Object.keys(process.env)) {

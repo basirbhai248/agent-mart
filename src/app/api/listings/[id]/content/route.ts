@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { withX402 as paymentMiddleware } from "@x402/next";
 
 import { proxyToConvex } from "../../../_lib/proxy";
 import {
@@ -14,9 +13,6 @@ export async function GET(request: Request): Promise<NextResponse> {
   if (!listingId) {
     return NextResponse.json({ error: "Listing id is required" }, { status: 400 });
   }
-
-  // Keep alias visible for route-level pattern tests.
-  void paymentMiddleware;
 
   const paymentSignature = request.headers.get("payment-signature");
   const xPayment = request.headers.get("x-payment");

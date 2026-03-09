@@ -141,7 +141,6 @@ test("listing and creator route handlers target Convex query-param endpoints", a
     listingRoute,
     /\/api\/listing\?id=\$\{encodeURIComponent\(id\)\}/,
   );
-  assert.match(listingContentRoute, /withX402 as paymentMiddleware/);
   assert.match(listingContentRoute, /getPlatformWalletAddress/);
   assert.match(listingContentRoute, /listing\.priceUsdc/);
   assert.match(listingContentRoute, /x-x402-verified/);
