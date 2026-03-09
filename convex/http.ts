@@ -228,7 +228,9 @@ export const getCreatorRoute = httpAction(async (ctx, request) => {
     return json({ error: "Method not allowed" }, 405);
   }
 
-  const wallet = creatorWalletFromPathname(new URL(request.url).pathname);
+  const wallet = asNonEmptyString(
+    new URL(request.url).searchParams.get("wallet"),
+  );
   if (!wallet) {
     return json({ error: "Wallet is required" }, 400);
   }
@@ -409,7 +411,7 @@ http.route({
 });
 
 http.route({
-  path: "/api/creators/:wallet",
+  path: "/api/creators",
   method: "GET",
   handler: getCreatorRoute,
 });
@@ -743,23 +745,6 @@ function creatorProfileWalletFromPathname(
 
   try {
     return asNonEmptyString(decodeURIComponent(segments[1]));
-  } catch {
-    return undefined;
-  }
-}
-
-function creatorWalletFromPathname(pathname: string): string | undefined {
-  const segments = pathname.split("/").filter(Boolean);
-  if (
-    segments.length !== 3 ||
-    segments[0] !== "api" ||
-    segments[1] !== "creators"
-  ) {
-    return undefined;
-  }
-
-  try {
-    return asNonEmptyString(decodeURIComponent(segments[2]));
   } catch {
     return undefined;
   }

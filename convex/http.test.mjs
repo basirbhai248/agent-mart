@@ -873,7 +873,7 @@ test("getCreatorRoute returns 405 for non-GET methods", async () => {
     },
   };
 
-  const request = new Request("https://example.com/api/creators/0xabc", {
+  const request = new Request("https://example.com/api/creators?wallet=0xabc", {
     method: "POST",
   });
 
@@ -884,7 +884,7 @@ test("getCreatorRoute returns 405 for non-GET methods", async () => {
   assert.equal(queryCalled, false);
 });
 
-test("getCreatorRoute returns 400 when wallet path segment is missing", async () => {
+test("getCreatorRoute returns 400 when wallet query param is missing", async () => {
   let queryCalled = false;
   const ctx = {
     runQuery: async () => {
@@ -913,7 +913,7 @@ test("getCreatorRoute returns 404 when creator does not exist", async () => {
     },
   };
 
-  const request = new Request("https://example.com/api/creators/0xabc", {
+  const request = new Request("https://example.com/api/creators?wallet=0xabc", {
     method: "GET",
   });
 
@@ -954,9 +954,12 @@ test("getCreatorRoute returns creator profile and listings", async () => {
     },
   };
 
-  const request = new Request("https://example.com/api/creators/%200xabc%20", {
-    method: "GET",
-  });
+  const request = new Request(
+    "https://example.com/api/creators?wallet=%200xabc%20",
+    {
+      method: "GET",
+    },
+  );
 
   const response = await getCreatorRoute._handler(ctx, request);
 
