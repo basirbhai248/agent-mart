@@ -4,11 +4,14 @@ import { Command } from "commander";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { setPrivateKey } from "./config.js";
+import { createBuyAction } from "./buy.js";
 import { createListAction } from "./list.js";
 import { createRecoverAction } from "./recover.js";
 import { createRegisterAction } from "./register.js";
 import { createSearchAction } from "./search.js";
 import { createUploadAction } from "./upload.js";
+
+const BUY_COMMAND_NAME = "buy";
 
 export function createProgram() {
   const program = new Command();
@@ -50,7 +53,13 @@ export function createProgram() {
     .requiredOption("--creator <wallet>", "Creator wallet address")
     .action(createListAction());
 
-  for (const commandName of ["buy", "updates", "me"]) {
+  program
+    .command(`${BUY_COMMAND_NAME} <listing-id>`)
+    .description("Buy a listing and save its content to a local file")
+    .option("--output <file>", "Output file path")
+    .action(createBuyAction());
+
+  for (const commandName of ["updates", "me"]) {
     program
       .command(commandName)
       .description(`${commandName} command`)
