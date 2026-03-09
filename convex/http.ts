@@ -162,6 +162,20 @@ export const listListingsRoute = httpAction(async (ctx, request) => {
   return json(listings, 200);
 });
 
+export const homepageRoute = httpAction(async (ctx, request) => {
+  if (request.method !== "GET") {
+    return json({ error: "Method not allowed" }, 405);
+  }
+
+  const listings = await ctx.runQuery(getListings, {});
+  const featuredListings = listings
+    .slice()
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, 3);
+
+  return html(renderHomepage(featuredListings), 200);
+});
+
 export const searchListingsRoute = httpAction(async (ctx, request) => {
   if (request.method !== "GET") {
     return json({ error: "Method not allowed" }, 405);
@@ -282,6 +296,12 @@ export const getListingContentRoute = httpAction(async (ctx, request) => {
 });
 
 http.route({
+  path: "/",
+  method: "GET",
+  handler: homepageRoute,
+});
+
+http.route({
   path: "/api/register",
   method: "POST",
   handler: registerCreator,
@@ -368,6 +388,72 @@ function json(body: unknown, status: number): Response {
       "content-type": "application/json",
     },
   });
+}
+
+function html(body: string, status: number): Response {
+  return new Response(body, {
+    status,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+    },
+  });
+}
+
+function renderHomepage(
+  featuredListings: Array<{
+    _id: string;
+    title: string;
+    description: string;
+    priceUsdc: number;
+  }>,
+): string {
+  const featuredMarkup =
+    featuredListings.length === 0
+      ? "<p>No featured listings yet.</p>"
+      : `<ul>${featuredListings
+          .map(
+            (listing) =>
+              `<li><article><h2>${escapeHtml(listing.title)}</h2><p>${escapeHtml(listing.description)}</p><p><strong>$${listing.priceUsdc.toFixed(2)} USDC</strong></p><a href="/api/listings/${encodeURIComponent(listing._id)}">View listing</a></article></li>`,
+          )
+          .join("")}</ul>`;
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Agent Mart</title>
+    <style>
+      :root { color-scheme: light; }
+      body { font-family: "Segoe UI", Tahoma, sans-serif; margin: 0; background: linear-gradient(180deg, #f3f8ff 0%, #fff 45%); color: #112240; }
+      main { max-width: 800px; margin: 0 auto; padding: 40px 20px 56px; }
+      h1 { margin: 0 0 8px; font-size: clamp(2rem, 5vw, 2.6rem); }
+      .lead { margin: 0 0 28px; color: #31435a; }
+      ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; }
+      article { background: #fff; border: 1px solid #d7e4ff; border-radius: 12px; padding: 16px; box-shadow: 0 8px 24px rgba(26, 68, 116, 0.07); }
+      h2 { margin: 0 0 8px; font-size: 1.25rem; }
+      p { margin: 0 0 10px; line-height: 1.4; }
+      a { color: #0050d2; font-weight: 600; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Agent Mart</h1>
+      <p class="lead">Featured listings from the creator marketplace.</p>
+      ${featuredMarkup}
+    </main>
+  </body>
+</html>`;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 function listingIdFromPathname(pathname: string): string | undefined {

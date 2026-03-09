@@ -5,6 +5,7 @@ const { registerCreator } = await import("./http.ts");
 const { recoverCreator } = await import("./http.ts");
 const { createListingRoute } = await import("./http.ts");
 const { listListingsRoute } = await import("./http.ts");
+const { homepageRoute } = await import("./http.ts");
 const { searchListingsRoute } = await import("./http.ts");
 const { getCreatorRoute } = await import("./http.ts");
 const { getListingRoute } = await import("./http.ts");
@@ -492,6 +493,85 @@ test("listListingsRoute returns all listings", async () => {
   assert.deepEqual(await response.json(), listings);
   assert.equal(queryCalls.length, 1);
   assert.deepEqual(queryCalls[0].args, {});
+});
+
+test("homepageRoute returns 405 for non-GET methods", async () => {
+  let queryCalled = false;
+  const ctx = {
+    runQuery: async () => {
+      queryCalled = true;
+      return [];
+    },
+  };
+
+  const request = new Request("https://example.com/", {
+    method: "POST",
+  });
+
+  const response = await homepageRoute._handler(ctx, request);
+
+  assert.equal(response.status, 405);
+  assert.deepEqual(await response.json(), { error: "Method not allowed" });
+  assert.equal(queryCalled, false);
+});
+
+test("homepageRoute renders featured listings as HTML", async () => {
+  const queryCalls = [];
+  const listings = [
+    {
+      _id: "listing_old",
+      title: "Old Listing",
+      description: "earliest",
+      priceUsdc: 10,
+      createdAt: 1,
+    },
+    {
+      _id: "listing_mid",
+      title: "Mid Listing",
+      description: "middle",
+      priceUsdc: 20,
+      createdAt: 2,
+    },
+    {
+      _id: "listing_new",
+      title: 'Newest "Listing"',
+      description: "latest <alpha>",
+      priceUsdc: 30,
+      createdAt: 3,
+    },
+    {
+      _id: "listing_newer",
+      title: "Second Newest",
+      description: "second",
+      priceUsdc: 40,
+      createdAt: 4,
+    },
+  ];
+  const ctx = {
+    runQuery: async (ref, args) => {
+      queryCalls.push({ ref, args });
+      return listings;
+    },
+  };
+
+  const request = new Request("https://example.com/", {
+    method: "GET",
+  });
+
+  const response = await homepageRoute._handler(ctx, request);
+  const body = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.equal(
+    response.headers.get("content-type"),
+    "text/html; charset=utf-8",
+  );
+  assert.equal(queryCalls.length, 1);
+  assert.match(body, /Agent Mart/);
+  assert.match(body, /Second Newest/);
+  assert.match(body, /Newest &quot;Listing&quot;/);
+  assert.match(body, /latest &lt;alpha&gt;/);
+  assert.equal(body.includes("Old Listing"), false);
 });
 
 test("searchListingsRoute returns 405 for non-GET methods", async () => {
