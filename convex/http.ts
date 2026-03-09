@@ -9,6 +9,7 @@ import {
 import {
   getCreatorByApiKey,
   getCreatorByWallet,
+  getCreatorListings,
   getListing,
   getListings,
   getPurchaseByListingAndBuyerWallet,
@@ -171,6 +172,41 @@ export const searchListingsRoute = httpAction(async (ctx, request) => {
   return json(listings, 200);
 });
 
+export const getCreatorRoute = httpAction(async (ctx, request) => {
+  if (request.method !== "GET") {
+    return json({ error: "Method not allowed" }, 405);
+  }
+
+  const wallet = creatorWalletFromPathname(new URL(request.url).pathname);
+  if (!wallet) {
+    return json({ error: "Wallet is required" }, 400);
+  }
+
+  const creator = await ctx.runQuery(getCreatorByWallet, { wallet });
+  if (!creator) {
+    return json({ error: "Creator not found" }, 404);
+  }
+
+  const listings = await ctx.runQuery(getCreatorListings, {
+    creatorId: creator._id,
+  });
+
+  return json(
+    {
+      creator: {
+        _id: creator._id,
+        wallet: creator.wallet,
+        displayName: creator.displayName,
+        bio: creator.bio,
+        twitterHandle: creator.twitterHandle ?? null,
+        createdAt: creator.createdAt,
+      },
+      listings,
+    },
+    200,
+  );
+});
+
 export const getListingRoute = httpAction(async (ctx, request) => {
   if (request.method !== "GET") {
     return json({ error: "Method not allowed" }, 405);
@@ -276,6 +312,12 @@ http.route({
 });
 
 http.route({
+  path: "/api/creators/:wallet",
+  method: "GET",
+  handler: getCreatorRoute,
+});
+
+http.route({
   path: "/api/listings/:id",
   method: "GET",
   handler: getListingRoute,
@@ -352,6 +394,23 @@ function listingContentIdFromPathname(pathname: string): string | undefined {
     segments[0] !== "api" ||
     segments[1] !== "listings" ||
     segments[3] !== "content"
+  ) {
+    return undefined;
+  }
+
+  try {
+    return asNonEmptyString(decodeURIComponent(segments[2]));
+  } catch {
+    return undefined;
+  }
+}
+
+function creatorWalletFromPathname(pathname: string): string | undefined {
+  const segments = pathname.split("/").filter(Boolean);
+  if (
+    segments.length !== 3 ||
+    segments[0] !== "api" ||
+    segments[1] !== "creators"
   ) {
     return undefined;
   }

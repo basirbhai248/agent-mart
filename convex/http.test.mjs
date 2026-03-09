@@ -6,6 +6,7 @@ const { recoverCreator } = await import("./http.ts");
 const { createListingRoute } = await import("./http.ts");
 const { listListingsRoute } = await import("./http.ts");
 const { searchListingsRoute } = await import("./http.ts");
+const { getCreatorRoute } = await import("./http.ts");
 const { getListingRoute } = await import("./http.ts");
 const { getListingContentRoute } = await import("./http.ts");
 const { buildRecoveryMessage, privateKeyToWalletAddress, signRecoveryMessage } =
@@ -533,6 +534,119 @@ test("searchListingsRoute returns matching listings", async () => {
   assert.deepEqual(await response.json(), listings);
   assert.equal(queryCalls.length, 1);
   assert.deepEqual(queryCalls[0].args, { query: " alpha " });
+});
+
+test("getCreatorRoute returns 405 for non-GET methods", async () => {
+  let queryCalled = false;
+  const ctx = {
+    runQuery: async () => {
+      queryCalled = true;
+      return null;
+    },
+  };
+
+  const request = new Request("https://example.com/api/creators/0xabc", {
+    method: "POST",
+  });
+
+  const response = await getCreatorRoute._handler(ctx, request);
+
+  assert.equal(response.status, 405);
+  assert.deepEqual(await response.json(), { error: "Method not allowed" });
+  assert.equal(queryCalled, false);
+});
+
+test("getCreatorRoute returns 400 when wallet path segment is missing", async () => {
+  let queryCalled = false;
+  const ctx = {
+    runQuery: async () => {
+      queryCalled = true;
+      return null;
+    },
+  };
+
+  const request = new Request("https://example.com/api/creators", {
+    method: "GET",
+  });
+
+  const response = await getCreatorRoute._handler(ctx, request);
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "Wallet is required" });
+  assert.equal(queryCalled, false);
+});
+
+test("getCreatorRoute returns 404 when creator does not exist", async () => {
+  const queryCalls = [];
+  const ctx = {
+    runQuery: async (ref, args) => {
+      queryCalls.push({ ref, args });
+      return null;
+    },
+  };
+
+  const request = new Request("https://example.com/api/creators/0xabc", {
+    method: "GET",
+  });
+
+  const response = await getCreatorRoute._handler(ctx, request);
+
+  assert.equal(response.status, 404);
+  assert.deepEqual(await response.json(), { error: "Creator not found" });
+  assert.equal(queryCalls.length, 1);
+  assert.deepEqual(queryCalls[0].args, { wallet: "0xabc" });
+});
+
+test("getCreatorRoute returns creator profile and listings", async () => {
+  const queryCalls = [];
+  const creator = {
+    _id: "creator_1",
+    wallet: "0xabc",
+    displayName: "Alice",
+    bio: "Builder",
+    twitterHandle: "@alice",
+    apiKey: "secret-key",
+    createdAt: 1710000000000,
+  };
+  const listings = [
+    {
+      _id: "listing_1",
+      creatorId: "creator_1",
+      title: "Alpha",
+      description: "First listing",
+      priceUsdc: 10,
+      fileStorageId: "file_1",
+      createdAt: 1710000001000,
+    },
+  ];
+  const ctx = {
+    runQuery: async (ref, args) => {
+      queryCalls.push({ ref, args });
+      return queryCalls.length === 1 ? creator : listings;
+    },
+  };
+
+  const request = new Request("https://example.com/api/creators/%200xabc%20", {
+    method: "GET",
+  });
+
+  const response = await getCreatorRoute._handler(ctx, request);
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    creator: {
+      _id: "creator_1",
+      wallet: "0xabc",
+      displayName: "Alice",
+      bio: "Builder",
+      twitterHandle: "@alice",
+      createdAt: 1710000000000,
+    },
+    listings,
+  });
+  assert.equal(queryCalls.length, 2);
+  assert.deepEqual(queryCalls[0].args, { wallet: "0xabc" });
+  assert.deepEqual(queryCalls[1].args, { creatorId: "creator_1" });
 });
 
 test("getListingRoute returns 405 for non-GET methods", async () => {
