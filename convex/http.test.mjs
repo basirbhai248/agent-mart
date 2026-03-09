@@ -5,6 +5,7 @@ const { registerCreator } = await import("./http.ts");
 const { recoverCreator } = await import("./http.ts");
 const { createListingRoute } = await import("./http.ts");
 const { listListingsRoute } = await import("./http.ts");
+const { searchListingsRoute } = await import("./http.ts");
 const { getListingRoute } = await import("./http.ts");
 const { getListingContentRoute } = await import("./http.ts");
 const { buildRecoveryMessage, privateKeyToWalletAddress, signRecoveryMessage } =
@@ -490,6 +491,48 @@ test("listListingsRoute returns all listings", async () => {
   assert.deepEqual(await response.json(), listings);
   assert.equal(queryCalls.length, 1);
   assert.deepEqual(queryCalls[0].args, {});
+});
+
+test("searchListingsRoute returns 405 for non-GET methods", async () => {
+  let queryCalled = false;
+  const ctx = {
+    runQuery: async () => {
+      queryCalled = true;
+      return [];
+    },
+  };
+
+  const request = new Request("https://example.com/api/search?q=alpha", {
+    method: "POST",
+  });
+
+  const response = await searchListingsRoute._handler(ctx, request);
+
+  assert.equal(response.status, 405);
+  assert.deepEqual(await response.json(), { error: "Method not allowed" });
+  assert.equal(queryCalled, false);
+});
+
+test("searchListingsRoute returns matching listings", async () => {
+  const queryCalls = [];
+  const listings = [{ _id: "listing_1", title: "Alpha", priceUsdc: 10 }];
+  const ctx = {
+    runQuery: async (ref, args) => {
+      queryCalls.push({ ref, args });
+      return listings;
+    },
+  };
+
+  const request = new Request("https://example.com/api/search?q=%20alpha%20", {
+    method: "GET",
+  });
+
+  const response = await searchListingsRoute._handler(ctx, request);
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), listings);
+  assert.equal(queryCalls.length, 1);
+  assert.deepEqual(queryCalls[0].args, { query: " alpha " });
 });
 
 test("getListingRoute returns 405 for non-GET methods", async () => {

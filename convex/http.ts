@@ -12,6 +12,7 @@ import {
   getListing,
   getListings,
   getPurchaseByListingAndBuyerWallet,
+  searchListings,
 } from "./queries.ts";
 import { buildRecoveryMessage, recoverWalletAddress } from "./wallet.ts";
 
@@ -160,6 +161,16 @@ export const listListingsRoute = httpAction(async (ctx, request) => {
   return json(listings, 200);
 });
 
+export const searchListingsRoute = httpAction(async (ctx, request) => {
+  if (request.method !== "GET") {
+    return json({ error: "Method not allowed" }, 405);
+  }
+
+  const query = new URL(request.url).searchParams.get("q") ?? "";
+  const listings = await ctx.runQuery(searchListings, { query });
+  return json(listings, 200);
+});
+
 export const getListingRoute = httpAction(async (ctx, request) => {
   if (request.method !== "GET") {
     return json({ error: "Method not allowed" }, 405);
@@ -256,6 +267,12 @@ http.route({
   path: "/api/listings",
   method: "GET",
   handler: listListingsRoute,
+});
+
+http.route({
+  path: "/api/search",
+  method: "GET",
+  handler: searchListingsRoute,
 });
 
 http.route({
