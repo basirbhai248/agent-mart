@@ -23,7 +23,7 @@ test("resolveApiUrl uses explicit value, env fallback, then default", () => {
     resolveApiUrl({ env: { AGENTMART_API_URL: "https://agentmart.dev" } }),
     "https://agentmart.dev/",
   );
-  assert.equal(resolveApiUrl({ env: {} }), "http://localhost:3000/");
+  assert.equal(resolveApiUrl({ env: {} }), "https://agent-mart.vercel.app/");
 });
 
 test("registerCreator posts /api/register and returns api key", async () => {
