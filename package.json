@@ -4,8 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "build": "node scripts/build.mjs",
     "test": "node --experimental-strip-types --test convex/*.test.mjs",
-    "lint": "npx prettier --check convex/*.ts convex/*.mjs"
+    "lint": "npx prettier --check convex/*.ts convex/*.mjs scripts/*.mjs"
   },
   "keywords": [],
   "author": "",
