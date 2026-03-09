@@ -133,3 +133,36 @@ test("createSearchAction logs table output", async () => {
   assert.match(logs[0], /ID\s+\|\s+title\s+\|\s+price\s+\|\s+creator/);
   assert.match(logs[0], /listing_9/);
 });
+
+test("createSearchAction falls back to no results on network fetch failures", async () => {
+  const logs = [];
+  const action = createSearchAction({
+    logger: { log: (line) => logs.push(line) },
+    fetchImpl: async () => {
+      const dnsError = new Error("dns lookup failed");
+      dnsError.code = "EAI_AGAIN";
+      throw new TypeError("fetch failed", { cause: dnsError });
+    },
+  });
+
+  await action("Twitter", { apiUrl: "https://agentmart.dev" });
+
+  assert.equal(logs.length, 1);
+  assert.equal(logs[0], "No results found.");
+});
+
+test("createSearchAction rethrows non-network search errors", async () => {
+  const action = createSearchAction({
+    logger: { log: () => {} },
+    fetchImpl: async () =>
+      new Response(JSON.stringify({ error: "invalid response" }), {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      }),
+  });
+
+  await assert.rejects(
+    action("Twitter", { apiUrl: "https://agentmart.dev" }),
+    /Search failed \(500\): invalid response/,
+  );
+});

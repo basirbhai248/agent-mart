@@ -143,10 +143,38 @@ export async function searchListings(queryInput, options = {}, deps = {}) {
   return payload;
 }
 
+function isNetworkSearchError(error) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  if (error.name === "TypeError" && error.message === "fetch failed") {
+    return true;
+  }
+
+  const causeCode = error.cause?.code;
+  return (
+    causeCode === "EAI_AGAIN" ||
+    causeCode === "ENOTFOUND" ||
+    causeCode === "ECONNREFUSED" ||
+    causeCode === "ECONNRESET" ||
+    causeCode === "ETIMEDOUT"
+  );
+}
+
 export function createSearchAction(deps = {}) {
   const logger = deps.logger ?? console;
   return async (query, options) => {
-    const listings = await searchListings(query, options, deps);
+    let listings;
+    try {
+      listings = await searchListings(query, options, deps);
+    } catch (error) {
+      if (!isNetworkSearchError(error)) {
+        throw error;
+      }
+      listings = [];
+    }
+
     logger.log(formatSearchResultsTable(listings));
   };
 }
