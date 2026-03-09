@@ -311,23 +311,44 @@ agentmart config set private-key <key>
 
 ## Tasks
 
-- [ ] Set up Next.js app with App Router in the project root (npx create-next-app)
-- [ ] Create Convex schema file (convex/schema.ts) with creators, listings, and purchases tables
-- [ ] Create Convex mutations: createCreator, createListing, recordPurchase
-- [ ] Create Convex queries: getListings, getListing, searchListings, getCreatorByWallet, getCreatorListings, getPurchase
-- [ ] Create API route: POST /api/register (creator registration)
-- [ ] Create API route: POST /api/recover (wallet signature recovery)
-- [ ] Create API route: POST /api/listings (create listing, requires API key auth)
-- [ ] Create API route: GET /api/listings (list all listings)
-- [ ] Create API route: GET /api/listings/[id] (get listing metadata)
-- [ ] Create API route: GET /api/listings/[id]/content (X402 paywalled content delivery)
-- [ ] Create API route: GET /api/search (search listings)
-- [ ] Create API route: GET /api/creators/[wallet] (creator profile + listings)
-- [ ] Create web frontend: homepage with featured listings
-- [ ] Create web frontend: creator profile page
-- [ ] Create web frontend: search results page
-- [ ] Push Convex schema and functions (npx convex dev --once)
-- [ ] Verify the app builds successfully (npm run build)
+### Phase 1: Backend (Convex) — DONE
+- [x] Create Convex schema file (convex/schema.ts) with creators, listings, and purchases tables
+- [x] Create Convex mutations: createCreator, createListing, recordPurchase
+- [x] Create Convex queries: getListings, getListing, searchListings, getCreatorByWallet, getCreatorListings, getPurchase
+- [x] Create Convex HTTP routes (convex/http.ts): POST /register, POST /recover, POST /listings, GET /listings, GET /listings/:id, GET /listings/:id/content (X402 paywalled), GET /search, GET /creators/:wallet
+- [x] Create wallet signature verification (convex/wallet.ts)
+- [x] Push Convex schema and functions (npx convex dev --once)
+
+### Phase 2: Next.js Web App
+- [x] Set up Next.js app with App Router (npx create-next-app@latest . --typescript --tailwind --app --src-dir --no-import-alias) in the project root. If package.json already exists, merge dependencies. Configure next.config to work alongside existing Convex setup.
+- [x] Install dependencies: convex, @x402/next for server-side X402 payment handling
+- [x] Create Next.js API routes that proxy to Convex HTTP endpoints: POST /api/register, POST /api/recover, POST /api/listings, GET /api/listings, GET /api/listings/[id], GET /api/listings/[id]/content (with X402 402 response), GET /api/search, GET /api/creators/[wallet]
+- [x] Create layout.tsx with navigation bar (logo "Agent Mart", search bar, links: Home, Search) and footer. Clean dark theme using Tailwind.
+- [x] Create homepage (app/page.tsx): hero section explaining Agent Mart ("Gumroad for agents"), featured listings grid fetched from GET /api/listings, each card shows title, price in USDC, creator name
+- [x] Create listing detail page (app/listings/[id]/page.tsx): shows title, description, price, creator info, and a notice that purchases are agent-only via CLI
+- [x] Create creator profile page (app/creators/[wallet]/page.tsx): displays creator name, bio, twitter handle, and grid of their listings
+- [x] Create search results page (app/search/page.tsx): search input + results grid from GET /api/search?q=query
+- [x] Verify the Next.js app builds successfully (npm run build)
+
+### Phase 3: CLI Tool (`agentmart` npm package)
+- [x] Create cli/ directory with its own package.json (name: "agentmart", bin: {"agentmart": "./bin/agentmart.js"}). Dependencies: commander, @x402/fetch, viem. Set "type": "module".
+- [x] Create bin/agentmart.js entry point using Commander.js with subcommands: register, recover, upload, search, list, buy, updates, me, config
+- [x] Implement `agentmart config set private-key <key>` — stores private key in ~/.agentmart/config.json. Also reads from env vars EVM_PRIVATE_KEY, PRIVATE_KEY, or WALLET_PRIVATE_KEY as fallback.
+- [x] Implement `agentmart register --wallet <addr> --name <name> --bio <bio>` — calls POST /api/register, handles X402 payment for creator fee using @x402/fetch, displays returned API key
+- [x] Implement `agentmart recover --wallet <addr> --signature <sig>` — calls POST /api/recover to get a new API key
+- [x] Implement `agentmart upload <file> --title <title> --description <desc> --price <usdc>` — reads file, calls POST /api/listings with API key auth, confirms listing created
+- [x] Implement `agentmart search <query>` — calls GET /api/search?q=query, displays results as formatted table (ID, title, price, creator)
+- [x] Implement `agentmart list --creator <wallet>` — calls GET /api/creators/<wallet>, displays listings
+- [x] Implement `agentmart buy <listing-id>` — calls GET /api/listings/<id>/content using @x402/fetch (auto-handles 402 payment with configured private key), saves content to local file
+- [x] Implement `agentmart me` — displays current config (wallet, registered name) from stored API key
+- [x] Implement `agentmart updates` — checks for updated versions of previously purchased content
+- [x] Add README.md to cli/ with installation instructions (npm install -g agentmart) and usage examples for every command
+- [x] Verify CLI builds and all commands parse correctly (node bin/agentmart.js --help for each subcommand)
+
+### Phase 4: Integration & Deploy
+- [x] Set the Convex deployment URL as NEXT_PUBLIC_CONVEX_URL in .env.local and configure CLI to point to the deployed Next.js API base URL
+- [x] Run full build verification: `npm run build` (Next.js) and `node cli/bin/agentmart.js --help` (CLI)
+- [x] Add vercel.json if needed for any custom config. Ensure the app is ready for `vercel deploy --prod`
 
 ## Future Considerations (V2+)
 
