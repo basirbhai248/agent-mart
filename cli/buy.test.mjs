@@ -266,6 +266,34 @@ test("buyListing surfaces API and download errors", async () => {
     buyListing("listing_1", {}, {
       resolvePrivateKey: async () => "0xprivate",
       privateKeyToAccount: () => ({ address: "0xabc" }),
+      fetchImpl: async () => {},
+      wrapFetchWithPayment: () => {
+        return async () =>
+          new Response(JSON.stringify({}), {
+            status: 402,
+            headers: {
+              "content-type": "application/json",
+              "payment-required": Buffer.from(
+                JSON.stringify({
+                  x402Version: 2,
+                  error: "Payment required",
+                  accepts: [{ scheme: "exact" }],
+                }),
+              ).toString("base64"),
+            },
+          });
+      },
+      x402ClientCtor: FakeX402Client,
+      exactEvmSchemeCtor: FakeExactEvmScheme,
+      exactEvmSchemeV1Ctor: FakeExactEvmSchemeV1,
+    }),
+    /Buy failed \(402\): Payment required/,
+  );
+
+  await assert.rejects(
+    buyListing("listing_1", {}, {
+      resolvePrivateKey: async () => "0xprivate",
+      privateKeyToAccount: () => ({ address: "0xabc" }),
       fetchImpl: async () => new Response("missing", { status: 404 }),
       wrapFetchWithPayment: () => {
         return async () =>

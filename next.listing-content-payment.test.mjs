@@ -94,7 +94,7 @@ test("buildPaymentRequiredHeader returns a parseable x402 PAYMENT-REQUIRED value
   });
   assert.equal(parsed.x402Version, 2);
   assert.equal(parsed.accepts[0].scheme, "exact");
-  assert.equal(parsed.accepts[0].network, "eip155:84532");
+  assert.equal(parsed.accepts[0].network, "eip155:8453");
   assert.equal(parsed.accepts[0].amount, "3750000");
   assert.equal(parsed.accepts[0].payTo, "0xplatform");
 });
@@ -140,7 +140,7 @@ test("manual 402 HTTP response is parseable from fetch-style headers", () => {
   assert.equal(httpResponse.headers.get("content-type"), "application/json");
   assert.equal(parsed.x402Version, 2);
   assert.equal(parsed.error, "Payment required");
-  assert.equal(parsed.accepts[0].network, "eip155:84532");
+  assert.equal(parsed.accepts[0].network, "eip155:8453");
   assert.equal(parsed.accepts[0].amount, "2500000");
   assert.equal(parsed.accepts[0].payTo, "0xplatform");
 });

@@ -56,12 +56,31 @@ function formatPaidFetchError(error) {
   return `Payment error: ${message}`;
 }
 
+function parsePaymentRequiredHeader(response) {
+  const headerValue = response.headers.get("payment-required");
+  if (!headerValue) {
+    return undefined;
+  }
+
+  try {
+    const payload = JSON.parse(Buffer.from(headerValue, "base64").toString("utf8"));
+    if (typeof payload?.error === "string" && payload.error.length > 0) {
+      return payload.error;
+    }
+  } catch {
+    // Invalid x402 header payload.
+  }
+
+  return "Payment required";
+}
+
 async function parseResponseError(response) {
+  const paymentRequiredError = parsePaymentRequiredHeader(response);
   let text = "";
   try {
     text = await response.text();
   } catch {
-    return "Unknown error";
+    return paymentRequiredError ?? "Unknown error";
   }
 
   try {
@@ -72,7 +91,7 @@ async function parseResponseError(response) {
   } catch {
     // not JSON
   }
-  return text || "Unknown error";
+  return paymentRequiredError || text || "Unknown error";
 }
 
 async function downloadListingContent(payload, deps = {}) {
