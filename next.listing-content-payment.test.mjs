@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { x402Client, x402HTTPClient } from "@x402/core/client";
 
 import {
+  buildPaymentRequiredHeader,
   fetchListing,
   getPlatformWalletAddress,
   listingIdFromPath,
@@ -77,6 +79,23 @@ test("fetchListing returns null for invalid responses", async (t) => {
     "https://localhost:3000/api/x",
   );
   assert.equal(listing, null);
+});
+
+test("buildPaymentRequiredHeader returns a parseable x402 PAYMENT-REQUIRED value", () => {
+  const headerValue = buildPaymentRequiredHeader(
+    "https://localhost:3000/api/listings/listing_1/content",
+    3.75,
+    "0xplatform",
+  );
+  const parser = new x402HTTPClient(new x402Client());
+  const parsed = parser.getPaymentRequiredResponse((name) => {
+    return name.toLowerCase() === "payment-required" ? headerValue : null;
+  });
+  assert.equal(parsed.x402Version, 2);
+  assert.equal(parsed.accepts[0].scheme, "exact");
+  assert.equal(parsed.accepts[0].network, "eip155:84532");
+  assert.equal(parsed.accepts[0].amount, "3750000");
+  assert.equal(parsed.accepts[0].payTo, "0xplatform");
 });
 
 test.after(() => {

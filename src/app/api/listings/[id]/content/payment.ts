@@ -1,6 +1,8 @@
 const listingContentPath = /^\/api\/listings\/([^/]+)\/content\/?$/i;
 
 export type ListingResponse = { priceUsdc: number };
+const DEFAULT_NETWORK = "eip155:84532";
+const USDC_ASSET = "0x0000000000000000000000000000000000000000";
 
 export function listingIdFromPath(pathname: string): string | undefined {
   const match = pathname.match(listingContentPath);
@@ -69,4 +71,36 @@ export function getPlatformWalletAddress(): string {
     throw new Error("PLATFORM_WALLET_ADDRESS is required");
   }
   return payTo;
+}
+
+export function buildPaymentRequiredHeader(
+  requestUrl: string,
+  priceUsdc: number,
+  payTo: string,
+): string {
+  const amount = Math.round(parseUsdPrice(priceUsdc) * 1_000_000).toString();
+  const paymentRequired = {
+    x402Version: 2,
+    error: "Payment required",
+    resource: {
+      url: requestUrl,
+      description: "Access listing content",
+      mimeType: "application/json",
+    },
+    accepts: [
+      {
+        scheme: "exact",
+        network: DEFAULT_NETWORK,
+        amount,
+        asset: USDC_ASSET,
+        payTo,
+        maxTimeoutSeconds: 300,
+        extra: {
+          name: "USDC",
+          version: 2,
+        },
+      },
+    ],
+  };
+  return Buffer.from(JSON.stringify(paymentRequired), "utf8").toString("base64");
 }

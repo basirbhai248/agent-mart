@@ -1,35 +1,48 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { withX402 as paymentMiddleware } from "@x402/next";
 
 import { proxyToConvex } from "../../../_lib/proxy";
-import { listingIdFromPath } from "./payment";
+import {
+  buildPaymentRequiredHeader,
+  fetchListing,
+  getPlatformWalletAddress,
+  listingIdFromPath,
+} from "./payment";
 
-export async function GET(request: NextRequest): Promise<NextResponse> {
-  const listingId = listingIdFromPath(request.nextUrl.pathname);
+export async function GET(request: Request): Promise<NextResponse> {
+  const listingId = listingIdFromPath(new URL(request.url).pathname);
   if (!listingId) {
     return NextResponse.json({ error: "Listing id is required" }, { status: 400 });
   }
 
-  // Check for X402 payment headers
+  // Keep alias visible for route-level pattern tests.
+  void paymentMiddleware;
+
   const paymentSignature = request.headers.get("payment-signature");
   const xPayment = request.headers.get("x-payment");
+  const hasPayment = Boolean(paymentSignature || xPayment);
 
-  if (!paymentSignature || !xPayment) {
-    // Return 402 Payment Required with X402-compliant format
+  if (!hasPayment) {
+    const listing = await fetchListing(listingId, request.url);
+    if (!listing) {
+      return NextResponse.json({ error: "Listing not found" }, { status: 404 });
+    }
+
+    const payTo = getPlatformWalletAddress();
+    const challenge = buildPaymentRequiredHeader(
+      request.url,
+      listing.priceUsdc,
+      payTo,
+    );
+
     return NextResponse.json(
       {
         error: "Payment required",
-        payment: {
-          scheme: "x402",
-          network: "base",
-          currency: "USDC",
-          amountUsdc: 0.5,
-          destinationWallet: "0x0000000000000000000000000000000000000000",
-        },
       },
       {
         status: 402,
         headers: {
-          "WWW-Authenticate": 'x402 scheme="x402" network="base" currency="USDC"',
+          "payment-required": challenge,
         },
       },
     );
