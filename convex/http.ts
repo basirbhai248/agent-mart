@@ -321,6 +321,10 @@ export const getListingContentRoute = httpAction(async (ctx, request) => {
     return json({ error: "Listing not found" }, 404);
   }
 
+  if (request.headers.get("x-x402-verified") === "1") {
+    return await listingContentJson(ctx, listing, "x402", false);
+  }
+
   const buyerWallet = asNonEmptyString(request.headers.get("x-buyer-wallet"));
   if (buyerWallet) {
     const existingPurchase = await ctx.runQuery(
@@ -347,19 +351,7 @@ export const getListingContentRoute = httpAction(async (ctx, request) => {
     return await listingContentJson(ctx, listing, buyerWallet, false);
   }
 
-  return json(
-    {
-      error: "Payment required",
-      payment: {
-        scheme: "x402",
-        network: "base",
-        currency: "USDC",
-        amountUsdc: listing.priceUsdc,
-        destinationWallet: process.env.PLATFORM_WALLET ?? null,
-      },
-    },
-    402,
-  );
+  return paymentRequiredResponse(request.url, listing.priceUsdc);
 });
 
 http.route({
@@ -471,6 +463,66 @@ function json(body: unknown, status: number): Response {
     status,
     headers: {
       "content-type": "application/json",
+    },
+  });
+}
+
+function paymentRequiredResponse(url: string, priceUsdc: number): Response {
+  const payTo =
+    process.env.PLATFORM_WALLET_ADDRESS?.trim() ??
+    process.env.PLATFORM_WALLET?.trim() ??
+    "";
+  const amount = Math.round(priceUsdc * 1_000_000).toString();
+  const paymentRequirement = {
+    scheme: "exact",
+    network: "eip155:84532",
+    amount,
+    asset: "0x0000000000000000000000000000000000000000",
+    payTo,
+    maxTimeoutSeconds: 300,
+    extra: {
+      name: "USDC",
+      version: 2,
+    },
+  };
+  const paymentRequired = {
+    x402Version: 2,
+    error: "Payment required",
+    resource: {
+      url,
+      description: "Access listing content",
+      mimeType: "application/json",
+    },
+    accepts: [paymentRequirement],
+  };
+  const responseBody = {
+    paymentRequirements: [
+      {
+        scheme: paymentRequirement.scheme,
+        network: paymentRequirement.network,
+        maxAmountRequired: paymentRequirement.amount,
+        resource: url,
+        description: "Access listing content",
+        mimeType: "application/json",
+        payTo: paymentRequirement.payTo,
+        maxTimeoutSeconds: paymentRequirement.maxTimeoutSeconds,
+        asset: paymentRequirement.asset,
+        extra: {
+          name: paymentRequirement.extra.name,
+          version: String(paymentRequirement.extra.version),
+        },
+      },
+    ],
+    error: "X-PAYMENT-REQUIRED",
+  };
+
+  return new Response(JSON.stringify(responseBody), {
+    status: 402,
+    headers: {
+      "content-type": "application/json",
+      "payment-required": Buffer.from(JSON.stringify(paymentRequired)).toString(
+        "base64",
+      ),
     },
   });
 }

@@ -64,6 +64,7 @@ export function createProgram() {
     .command(`${BUY_COMMAND_NAME} <listing-id>`)
     .description("Buy a listing and save its content to a local file")
     .option("--output <file>", "Output file path")
+    .option("--testnet", "Use Base Sepolia for x402 payments")
     .action(createBuyAction());
 
   program
