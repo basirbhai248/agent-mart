@@ -1,4 +1,5 @@
 import { resolvePrivateKey, setApiKey } from "./config.js";
+import { createX402PaymentClient } from "./payment-client.js";
 
 export const DEFAULT_API_URL = "https://agent-mart-beryl.vercel.app";
 const TESTNET_ENV_KEY = "AGENTMART_TESTNET";
@@ -34,6 +35,8 @@ async function buildPaymentFetch({
   fetchImpl = globalThis.fetch,
   wrapFetchWithPayment,
   privateKeyToAccount,
+  x402ClientCtor,
+  exactEvmSchemeCtor,
 }) {
   if (typeof fetchImpl !== "function") {
     throw new Error("Fetch implementation is unavailable");
@@ -50,7 +53,13 @@ async function buildPaymentFetch({
   }
 
   const account = toAccount(privateKey);
-  return wrapPayment(fetchImpl, { account, network });
+  const paymentClient = await createX402PaymentClient({
+    account,
+    network,
+    x402ClientCtor,
+    exactEvmSchemeCtor,
+  });
+  return wrapPayment(fetchImpl, paymentClient);
 }
 
 async function parseResponseError(response) {
@@ -86,6 +95,8 @@ export async function registerCreator(options, deps = {}) {
     fetchImpl: deps.fetchImpl,
     wrapFetchWithPayment: deps.wrapFetchWithPayment,
     privateKeyToAccount: deps.privateKeyToAccount,
+    x402ClientCtor: deps.x402ClientCtor,
+    exactEvmSchemeCtor: deps.exactEvmSchemeCtor,
   });
 
   const response = await paidFetch(new URL("/api/register", apiUrl), {

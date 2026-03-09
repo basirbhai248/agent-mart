@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 
+import { createX402PaymentClient } from "./payment-client.js";
 import { resolvePrivateKey } from "./config.js";
 import { recordPurchasedContent } from "./purchases.js";
 import {
@@ -18,6 +19,8 @@ async function buildPaymentFetch({
   fetchImpl = globalThis.fetch,
   wrapFetchWithPayment,
   privateKeyToAccount,
+  x402ClientCtor,
+  exactEvmSchemeCtor,
 }) {
   if (typeof fetchImpl !== "function") {
     throw new Error("Fetch implementation is unavailable");
@@ -34,7 +37,13 @@ async function buildPaymentFetch({
   }
 
   const account = toAccount(privateKey);
-  return wrapPayment(fetchImpl, { account, network });
+  const paymentClient = await createX402PaymentClient({
+    account,
+    network,
+    x402ClientCtor,
+    exactEvmSchemeCtor,
+  });
+  return wrapPayment(fetchImpl, paymentClient);
 }
 
 function formatPaidFetchError(error) {
@@ -98,6 +107,8 @@ export async function buyListing(listingIdInput, options = {}, deps = {}) {
     fetchImpl: deps.fetchImpl,
     wrapFetchWithPayment: deps.wrapFetchWithPayment,
     privateKeyToAccount: deps.privateKeyToAccount,
+    x402ClientCtor: deps.x402ClientCtor,
+    exactEvmSchemeCtor: deps.exactEvmSchemeCtor,
   });
 
   let response;

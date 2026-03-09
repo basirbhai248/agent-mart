@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 
 import { resolvePrivateKey } from "./config.js";
+import { createX402PaymentClient } from "./payment-client.js";
 import {
   getPurchasedContent,
   hasContentChanged,
@@ -13,6 +14,8 @@ async function buildPaymentFetch({
   fetchImpl = globalThis.fetch,
   wrapFetchWithPayment,
   privateKeyToAccount,
+  x402ClientCtor,
+  exactEvmSchemeCtor,
 }) {
   if (typeof fetchImpl !== "function") {
     throw new Error("Fetch implementation is unavailable");
@@ -29,7 +32,12 @@ async function buildPaymentFetch({
   }
 
   const account = toAccount(privateKey);
-  return wrapPayment(fetchImpl, { account });
+  const paymentClient = await createX402PaymentClient({
+    account,
+    x402ClientCtor,
+    exactEvmSchemeCtor,
+  });
+  return wrapPayment(fetchImpl, paymentClient);
 }
 
 async function parseResponseError(response) {
@@ -90,6 +98,8 @@ export async function checkPurchasedContentUpdates(options = {}, deps = {}) {
     fetchImpl: deps.fetchImpl,
     wrapFetchWithPayment: deps.wrapFetchWithPayment,
     privateKeyToAccount: deps.privateKeyToAccount,
+    x402ClientCtor: deps.x402ClientCtor,
+    exactEvmSchemeCtor: deps.exactEvmSchemeCtor,
   });
   const fsModule = deps.fsModule ?? fs;
   const savePurchase = deps.recordPurchasedContent ?? recordPurchasedContent;

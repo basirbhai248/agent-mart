@@ -11,9 +11,10 @@
     "lint": "npx prettier --check convex/*.ts convex/*.mjs scripts/*.mjs src/**/*.tsx *.mjs *.ts"
   },
   "dependencies": {
-    "@x402/evm": "latest",
+    "@x402/evm": "^2.6.0",
     "@x402/next": "latest",
     "convex": "^1.32.0",
+    "ethers": "^6.16.0",
     "next": "^16.1.6",
     "react": "19.2.0",
     "react-dom": "19.2.0"
