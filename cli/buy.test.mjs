@@ -10,6 +10,7 @@ test("buyListing calls paid GET /api/listings/<id>/content and writes downloaded
     paidFetch: [],
     rawFetch: [],
     writes: [],
+    recordedPurchases: [],
   };
 
   const result = await buyListing(
@@ -43,6 +44,9 @@ test("buyListing calls paid GET /api/listings/<id>/content and writes downloaded
           calls.writes.push({ filePath, content, encoding });
         },
       },
+      recordPurchasedContent: async (purchase) => {
+        calls.recordedPurchases.push(purchase);
+      },
     },
   );
 
@@ -57,6 +61,13 @@ test("buyListing calls paid GET /api/listings/<id>/content and writes downloaded
   assert.equal(calls.rawFetch[0].init.method, "GET");
   assert.deepEqual(calls.writes, [
     { filePath: "listing_1.txt", content: "paid content", encoding: "utf8" },
+  ]);
+  assert.deepEqual(calls.recordedPurchases, [
+    {
+      listingId: "listing_1",
+      outputPath: "listing_1.txt",
+      content: "paid content",
+    },
   ]);
 });
 
@@ -84,6 +95,7 @@ test("buyListing supports inline content and --output override", async () => {
           writes.push({ filePath, content, encoding });
         },
       },
+      recordPurchasedContent: async () => {},
     },
   );
 
@@ -157,6 +169,7 @@ test("createBuyAction logs saved path", async () => {
         );
     },
     fsModule: { writeFile: async () => {} },
+    recordPurchasedContent: async () => {},
   });
 
   await action("listing_2", {});

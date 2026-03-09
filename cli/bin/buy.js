@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 
 import { resolvePrivateKey } from "./config.js";
+import { recordPurchasedContent } from "./purchases.js";
 import { normalizeRequiredOption, resolveApiUrl } from "./register.js";
 
 function defaultOutputPath(listingId) {
@@ -109,6 +110,11 @@ export async function buyListing(listingIdInput, options = {}, deps = {}) {
 
   const fsModule = deps.fsModule ?? fs;
   await fsModule.writeFile(outputPath, content, "utf8");
+  const savePurchase = deps.recordPurchasedContent ?? recordPurchasedContent;
+  await savePurchase(
+    { listingId, outputPath, content },
+    { configFilePath: deps.configFilePath, fsModule },
+  );
 
   return { listingId, outputPath };
 }

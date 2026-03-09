@@ -10,6 +10,7 @@ import { createMeAction } from "./me.js";
 import { createRecoverAction } from "./recover.js";
 import { createRegisterAction } from "./register.js";
 import { createSearchAction } from "./search.js";
+import { createUpdatesAction } from "./updates.js";
 import { createUploadAction } from "./upload.js";
 
 const BUY_COMMAND_NAME = "buy";
@@ -65,14 +66,10 @@ export function createProgram() {
     .description("Show your creator profile from stored API key")
     .action(createMeAction());
 
-  for (const commandName of ["updates"]) {
-    program
-      .command(commandName)
-      .description(`${commandName} command`)
-      .action(() => {
-        console.log(`${commandName} command is not yet implemented`);
-      });
-  }
+  program
+    .command("updates")
+    .description("Check for updates to previously purchased listings")
+    .action(createUpdatesAction());
 
   program
     .command("config")
