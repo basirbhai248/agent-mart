@@ -4,14 +4,22 @@ import { Command } from "commander";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { setPrivateKey } from "./config.js";
+import { createRegisterAction } from "./register.js";
 
 export function createProgram() {
   const program = new Command();
 
   program.name("agentmart").description("AgentMart CLI");
 
+  program
+    .command("register")
+    .description("Register as a creator and pay the one-time creator fee")
+    .requiredOption("--wallet <addr>", "Creator wallet address")
+    .requiredOption("--name <name>", "Creator display name")
+    .requiredOption("--bio <bio>", "Creator bio")
+    .action(createRegisterAction());
+
   for (const commandName of [
-    "register",
     "recover",
     "upload",
     "search",
