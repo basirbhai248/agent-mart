@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 
-import { Command } from "commander";
+let Command;
+try {
+  ({ Command } = await import("commander"));
+} catch {
+  ({ Command } = await import("./mini-commander.js"));
+}
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { setPrivateKey } from "./config.js";
