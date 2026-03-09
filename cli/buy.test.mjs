@@ -55,7 +55,7 @@ test("buyListing calls paid GET Vercel proxy /api/listings/<id>/content and writ
   assert.equal(calls.wrapFetchWithPayment.length, 1);
   assert.equal(
     calls.wrapFetchWithPayment[0].options.network,
-    "eip155:8453",
+    "base",
   );
   assert.equal(calls.paidFetch.length, 1);
   assert.equal(
@@ -139,7 +139,38 @@ test("buyListing uses Base Sepolia network when --testnet is enabled", async () 
   );
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].network, "eip155:84532");
+  assert.equal(calls[0].network, "base-sepolia");
+});
+
+test("buyListing uses Base Sepolia when AGENTMART_TESTNET=true", async () => {
+  const calls = [];
+
+  await buyListing(
+    "listing_3",
+    {},
+    {
+      env: { AGENTMART_TESTNET: "true" },
+      resolvePrivateKey: async () => "0xprivate",
+      privateKeyToAccount: () => ({ address: "0xabc" }),
+      fetchImpl: async () => new Response("downloaded content", { status: 200 }),
+      wrapFetchWithPayment: (_fetchImpl, options) => {
+        calls.push(options);
+        return async () =>
+          new Response(
+            JSON.stringify({ contentUrl: "https://download.agentmart.dev/file_3" }),
+            {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            },
+          );
+      },
+      fsModule: { writeFile: async () => {} },
+      recordPurchasedContent: async () => {},
+    },
+  );
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].network, "base-sepolia");
 });
 
 test("buyListing validates required inputs and private key", async () => {
@@ -185,6 +216,27 @@ test("buyListing surfaces API and download errors", async () => {
       },
     }),
     /Failed to download content \(404\)/,
+  );
+});
+
+test("buyListing surfaces paid fetch parse failures as payment errors", async () => {
+  await assert.rejects(
+    buyListing("listing_1", {}, {
+      resolvePrivateKey: async () => "0xprivate",
+      privateKeyToAccount: () => ({ address: "0xabc" }),
+      fetchImpl: async () => {},
+      wrapFetchWithPayment: () => {
+        return async () => {
+          throw new Error("Unable to parse payment requirements");
+        };
+      },
+    }),
+    (error) => {
+      assert.equal(error instanceof Error, true);
+      assert.match(error.message, /^Payment error:/);
+      assert.doesNotMatch(error.message, /parse/i);
+      return true;
+    },
   );
 });
 

@@ -2,10 +2,11 @@ import fs from "node:fs/promises";
 
 import { resolvePrivateKey } from "./config.js";
 import { recordPurchasedContent } from "./purchases.js";
-import { normalizeRequiredOption, resolveApiUrl } from "./register.js";
-
-const BASE_MAINNET_NETWORK = "eip155:8453";
-const BASE_SEPOLIA_NETWORK = "eip155:84532";
+import {
+  normalizeRequiredOption,
+  resolveApiUrl,
+  resolvePaymentNetwork,
+} from "./register.js";
 
 function defaultOutputPath(listingId) {
   return `${listingId.replace(/[^a-zA-Z0-9._-]/g, "_")}.txt`;
@@ -13,7 +14,7 @@ function defaultOutputPath(listingId) {
 
 async function buildPaymentFetch({
   privateKey,
-  testnet = false,
+  network,
   fetchImpl = globalThis.fetch,
   wrapFetchWithPayment,
   privateKeyToAccount,
@@ -33,10 +34,15 @@ async function buildPaymentFetch({
   }
 
   const account = toAccount(privateKey);
-  return wrapPayment(fetchImpl, {
-    account,
-    network: testnet ? BASE_SEPOLIA_NETWORK : BASE_MAINNET_NETWORK,
-  });
+  return wrapPayment(fetchImpl, { account, network });
+}
+
+function formatPaidFetchError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/parse/i.test(message)) {
+    return "Payment error: failed to process payment requirements from server";
+  }
+  return `Payment error: ${message}`;
 }
 
 async function parseResponseError(response) {
@@ -88,19 +94,24 @@ export async function buyListing(listingIdInput, options = {}, deps = {}) {
 
   const paidFetch = await buildPaymentFetch({
     privateKey,
-    testnet: options.testnet === true,
+    network: resolvePaymentNetwork({ testnet: options.testnet, env: deps.env }),
     fetchImpl: deps.fetchImpl,
     wrapFetchWithPayment: deps.wrapFetchWithPayment,
     privateKeyToAccount: deps.privateKeyToAccount,
   });
 
-  const response = await paidFetch(
-    new URL(
-      `/api/listings/${encodeURIComponent(listingId)}/content`,
-      apiUrl,
-    ),
-    { method: "GET" },
-  );
+  let response;
+  try {
+    response = await paidFetch(
+      new URL(
+        `/api/listings/${encodeURIComponent(listingId)}/content`,
+        apiUrl,
+      ),
+      { method: "GET" },
+    );
+  } catch (error) {
+    throw new Error(formatPaidFetchError(error));
+  }
 
   if (!response.ok) {
     const errorMessage = await parseResponseError(response);
