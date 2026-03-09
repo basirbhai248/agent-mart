@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { proxyToConvex } from "./src/app/api/_lib/proxy.ts";
@@ -69,6 +70,56 @@ test("proxyToConvex forwards GET query params to Convex", async (t) => {
 
   assert.equal(response.status, 200);
   assert.equal(calledUrl, "https://example.convex.cloud/api/search?q=alpha");
+});
+
+test("proxyToConvex merges path and request query params", async (t) => {
+  process.env.CONVEX_SITE_URL = "https://example.convex.cloud";
+
+  let calledUrl;
+
+  globalThis.fetch = async (url) => {
+    calledUrl = String(url);
+    return new Response("{}", {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  const request = new Request(
+    "https://localhost:3000/api/listings/listing_1?include=meta",
+  );
+  const response = await proxyToConvex(request, "/api/listing?id=listing_1");
+
+  assert.equal(response.status, 200);
+  assert.equal(
+    calledUrl,
+    "https://example.convex.cloud/api/listing?id=listing_1&include=meta",
+  );
+});
+
+test("listing and creator route handlers target Convex query-param endpoints", async () => {
+  const [listingRoute, listingContentRoute, creatorRoute] = await Promise.all([
+    readFile("./src/app/api/listings/[id]/route.ts", "utf8"),
+    readFile("./src/app/api/listings/[id]/content/route.ts", "utf8"),
+    readFile("./src/app/api/creators/[wallet]/route.ts", "utf8"),
+  ]);
+
+  assert.match(
+    listingRoute,
+    /\/api\/listing\?id=\$\{encodeURIComponent\(id\)\}/,
+  );
+  assert.match(
+    listingContentRoute,
+    /\/api\/listing\/content\?id=\$\{encodeURIComponent\(id\)\}/,
+  );
+  assert.match(
+    creatorRoute,
+    /\/api\/creators\?wallet=\$\{encodeURIComponent\(wallet\)\}/,
+  );
 });
 
 test("proxyToConvex preserves 402 responses for listing content", async (t) => {

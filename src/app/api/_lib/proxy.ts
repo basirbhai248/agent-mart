@@ -12,7 +12,11 @@ function getConvexBaseUrl(): string {
 function buildConvexUrl(requestUrl: string, path: string): string {
   const source = new URL(requestUrl);
   const target = new URL(`${getConvexBaseUrl()}${path}`);
-  target.search = source.search;
+  const mergedParams = new URLSearchParams(target.search);
+  source.searchParams.forEach((value, key) => {
+    mergedParams.append(key, value);
+  });
+  target.search = mergedParams.toString();
   return target.toString();
 }
 

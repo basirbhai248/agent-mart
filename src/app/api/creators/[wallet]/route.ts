@@ -9,8 +9,5 @@ export async function GET(
   { params }: RouteContext,
 ): Promise<Response> {
   const { wallet } = await params;
-  return proxyToConvex(
-    request,
-    `/api/creators/${encodeURIComponent(wallet)}`,
-  );
+  return proxyToConvex(request, `/api/creators?wallet=${encodeURIComponent(wallet)}`);
 }

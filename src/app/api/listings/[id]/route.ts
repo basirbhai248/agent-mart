@@ -9,5 +9,5 @@ export async function GET(
   { params }: RouteContext,
 ): Promise<Response> {
   const { id } = await params;
-  return proxyToConvex(request, `/api/listings/${encodeURIComponent(id)}`);
+  return proxyToConvex(request, `/api/listing?id=${encodeURIComponent(id)}`);
 }

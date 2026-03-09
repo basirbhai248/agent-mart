@@ -11,6 +11,6 @@ export async function GET(
   const { id } = await params;
   return proxyToConvex(
     request,
-    `/api/listings/${encodeURIComponent(id)}/content`,
+    `/api/listing/content?id=${encodeURIComponent(id)}`,
   );
 }
