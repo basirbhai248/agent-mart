@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { setPrivateKey } from "./config.js";
 import { createRecoverAction } from "./recover.js";
 import { createRegisterAction } from "./register.js";
+import { createSearchAction } from "./search.js";
 import { createUploadAction } from "./upload.js";
 
 export function createProgram() {
@@ -37,7 +38,12 @@ export function createProgram() {
     .option("--api-key <key>", "Creator API key (or set AGENTMART_API_KEY)")
     .action(createUploadAction());
 
-  for (const commandName of ["search", "list", "buy", "updates", "me"]) {
+  program
+    .command("search <query>")
+    .description("Search listings")
+    .action(createSearchAction());
+
+  for (const commandName of ["list", "buy", "updates", "me"]) {
     program
       .command(commandName)
       .description(`${commandName} command`)
