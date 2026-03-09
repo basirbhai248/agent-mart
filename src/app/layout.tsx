@@ -34,7 +34,7 @@ export default function RootLayout({
               </form>
               <div className="flex items-center gap-4 text-sm text-zinc-300">
                 <Link href="/">Home</Link>
-                <Link href="/search">Search</Link>
+                <Link href="/docs">Docs</Link>
               </div>
             </nav>
           </header>
