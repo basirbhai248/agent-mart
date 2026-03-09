@@ -1,4 +1,4 @@
-const CONVEX_BASE_URL_ENV = "NEXT_PUBLIC_CONVEX_URL";
+const CONVEX_BASE_URL_ENV = "CONVEX_SITE_URL";
 
 function getConvexBaseUrl(): string {
   const value = process.env[CONVEX_BASE_URL_ENV]?.trim();
@@ -29,10 +29,24 @@ export async function proxyToConvex(request: Request, path: string): Promise<Res
   const headers = new Headers(request.headers);
   headers.delete("host");
 
-  return fetch(buildConvexUrl(request.url, path), {
+  const upstream = await fetch(buildConvexUrl(request.url, path), {
     method: request.method,
     headers,
     body: await requestBody(request),
     redirect: "manual",
+  });
+
+  const body = await upstream.arrayBuffer();
+  const responseHeaders = new Headers();
+  upstream.headers.forEach((value, key) => {
+    if (!["transfer-encoding", "content-encoding", "connection"].includes(key.toLowerCase())) {
+      responseHeaders.set(key, value);
+    }
+  });
+
+  return new Response(body, {
+    status: upstream.status,
+    statusText: upstream.statusText,
+    headers: responseHeaders,
   });
 }

@@ -2,17 +2,16 @@ import { normalizeRequiredOption, resolveApiUrl } from "./register.js";
 import { setApiKey } from "./config.js";
 
 async function parseResponseError(response) {
+  const text = await response.text();
   try {
-    const payload = await response.json();
+    const payload = JSON.parse(text);
     if (typeof payload?.error === "string" && payload.error.length > 0) {
       return payload.error;
     }
   } catch {
-    // Ignore JSON parse errors and fall through to response text.
+    // not JSON
   }
-
-  const fallback = await response.text();
-  return fallback || "Unknown error";
+  return text || "Unknown error";
 }
 
 export async function recoverCreator(options, deps = {}) {
