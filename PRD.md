@@ -309,6 +309,26 @@ agentmart config set private-key <key>
 
 ---
 
+## Tasks
+
+- [ ] Set up Next.js app with App Router in the project root (npx create-next-app)
+- [ ] Create Convex schema file (convex/schema.ts) with creators, listings, and purchases tables
+- [ ] Create Convex mutations: createCreator, createListing, recordPurchase
+- [ ] Create Convex queries: getListings, getListing, searchListings, getCreatorByWallet, getCreatorListings, getPurchase
+- [ ] Create API route: POST /api/register (creator registration)
+- [ ] Create API route: POST /api/recover (wallet signature recovery)
+- [ ] Create API route: POST /api/listings (create listing, requires API key auth)
+- [ ] Create API route: GET /api/listings (list all listings)
+- [ ] Create API route: GET /api/listings/[id] (get listing metadata)
+- [ ] Create API route: GET /api/listings/[id]/content (X402 paywalled content delivery)
+- [ ] Create API route: GET /api/search (search listings)
+- [ ] Create API route: GET /api/creators/[wallet] (creator profile + listings)
+- [ ] Create web frontend: homepage with featured listings
+- [ ] Create web frontend: creator profile page
+- [ ] Create web frontend: search results page
+- [ ] Push Convex schema and functions (npx convex dev --once)
+- [ ] Verify the app builds successfully (npm run build)
+
 ## Future Considerations (V2+)
 
 - Push notifications to buyers when content updates (email, webhook, etc.)
