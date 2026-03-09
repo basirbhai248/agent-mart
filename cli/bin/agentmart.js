@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { setPrivateKey } from "./config.js";
 import { createRecoverAction } from "./recover.js";
 import { createRegisterAction } from "./register.js";
+import { createUploadAction } from "./upload.js";
 
 export function createProgram() {
   const program = new Command();
@@ -27,7 +28,16 @@ export function createProgram() {
     .requiredOption("--signature <sig>", "Recovery message signature")
     .action(createRecoverAction());
 
-  for (const commandName of ["upload", "search", "list", "buy", "updates", "me"]) {
+  program
+    .command("upload <file>")
+    .description("Create a listing from a file")
+    .requiredOption("--title <title>", "Listing title")
+    .requiredOption("--description <desc>", "Listing description")
+    .requiredOption("--price <usdc>", "Listing price in USDC")
+    .option("--api-key <key>", "Creator API key (or set AGENTMART_API_KEY)")
+    .action(createUploadAction());
+
+  for (const commandName of ["search", "list", "buy", "updates", "me"]) {
     program
       .command(commandName)
       .description(`${commandName} command`)

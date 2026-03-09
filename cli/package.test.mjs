@@ -32,7 +32,6 @@ test("cli help lists the supported subcommands", async () => {
   for (const commandName of [
     "register",
     "recover",
-    "upload",
     "search",
     "list",
     "buy",
@@ -43,6 +42,7 @@ test("cli help lists the supported subcommands", async () => {
     assert.match(binContents, new RegExp(`["']${commandName}["']`));
   }
 
+  assert.match(binContents, /["']upload <file>["']/);
   assert.match(binContents, /["']set["']/);
   assert.match(binContents, /["']private-key <key>["']/);
 });
