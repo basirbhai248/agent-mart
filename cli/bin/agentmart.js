@@ -3,6 +3,7 @@
 import { Command } from "commander";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { setPrivateKey } from "./config.js";
 
 export function createProgram() {
   const program = new Command();
@@ -18,7 +19,6 @@ export function createProgram() {
     "buy",
     "updates",
     "me",
-    "config",
   ]) {
     program
       .command(commandName)
@@ -27,6 +27,18 @@ export function createProgram() {
         console.log(`${commandName} command is not yet implemented`);
       });
   }
+
+  program
+    .command("config")
+    .description("Manage CLI config")
+    .command("set")
+    .description("Set config values")
+    .command("private-key <key>")
+    .description("Set wallet private key")
+    .action(async (key) => {
+      const configFilePath = await setPrivateKey(key);
+      console.log(`Saved private key to ${configFilePath}`);
+    });
 
   return program;
 }

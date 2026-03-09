@@ -42,4 +42,7 @@ test("cli help lists the supported subcommands", async () => {
   ]) {
     assert.match(binContents, new RegExp(`["']${commandName}["']`));
   }
+
+  assert.match(binContents, /["']set["']/);
+  assert.match(binContents, /["']private-key <key>["']/);
 });
