@@ -81,3 +81,23 @@ export const getPurchase = query({
     return await ctx.db.get(args.purchaseId);
   },
 });
+
+export const getPurchaseByListingAndBuyerWallet = query({
+  args: {
+    listingId: v.id("listings"),
+    buyerWallet: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const purchases = await ctx.db
+      .query("purchases")
+      .withIndex("by_listingId", (q) => q.eq("listingId", args.listingId))
+      .collect();
+
+    return (
+      purchases.find(
+        (purchase) =>
+          purchase.buyerWallet.toLowerCase() === args.buyerWallet.toLowerCase(),
+      ) ?? null
+    );
+  },
+});

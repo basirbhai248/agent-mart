@@ -220,3 +220,77 @@ test("getPurchase fetches purchase by id", async () => {
   const result = await getPurchase._handler(ctx, { purchaseId: "purchase_1" });
   assert.equal(result, expected);
 });
+
+test("getPurchaseByListingAndBuyerWallet returns purchase for matching wallet", async () => {
+  const { getPurchaseByListingAndBuyerWallet } = queries;
+  const expected = {
+    _id: "purchase_1",
+    buyerWallet: "0xBuyer",
+    txHash: "0xabc",
+  };
+  const calls = [];
+  const ctx = {
+    db: {
+      query: (table) => {
+        calls.push(["query", table]);
+        return {
+          withIndex: (indexName, cb) => {
+            calls.push(["withIndex", indexName]);
+            const indexBuilder = {
+              eq: (field, value) => {
+                calls.push(["eq", field, value]);
+                return "index_filter";
+              },
+            };
+            cb(indexBuilder);
+            return {
+              collect: async () => {
+                calls.push(["collect"]);
+                return [
+                  expected,
+                  { _id: "purchase_2", buyerWallet: "0xOther" },
+                ];
+              },
+            };
+          },
+        };
+      },
+    },
+  };
+
+  const result = await getPurchaseByListingAndBuyerWallet._handler(ctx, {
+    listingId: "listing_1",
+    buyerWallet: "0xbuyer",
+  });
+  assert.deepEqual(result, expected);
+  assert.deepEqual(calls, [
+    ["query", "purchases"],
+    ["withIndex", "by_listingId"],
+    ["eq", "listingId", "listing_1"],
+    ["collect"],
+  ]);
+});
+
+test("getPurchaseByListingAndBuyerWallet returns null when no wallet match", async () => {
+  const { getPurchaseByListingAndBuyerWallet } = queries;
+  const ctx = {
+    db: {
+      query: () => ({
+        withIndex: (_indexName, cb) => {
+          cb({ eq: () => "index_filter" });
+          return {
+            collect: async () => [
+              { _id: "purchase_2", buyerWallet: "0xOther" },
+            ],
+          };
+        },
+      }),
+    },
+  };
+
+  const result = await getPurchaseByListingAndBuyerWallet._handler(ctx, {
+    listingId: "listing_1",
+    buyerWallet: "0xbuyer",
+  });
+  assert.equal(result, null);
+});

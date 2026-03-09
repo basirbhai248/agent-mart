@@ -3,6 +3,7 @@ import { httpActionGeneric as httpAction, httpRouter } from "convex/server";
 import {
   createCreator,
   createListing,
+  recordPurchase,
   updateCreatorApiKey,
 } from "./mutations.ts";
 import {
@@ -10,6 +11,7 @@ import {
   getCreatorByWallet,
   getListing,
   getListings,
+  getPurchaseByListingAndBuyerWallet,
 } from "./queries.ts";
 import { buildRecoveryMessage, recoverWalletAddress } from "./wallet.ts";
 
@@ -176,6 +178,62 @@ export const getListingRoute = httpAction(async (ctx, request) => {
   return json(listing, 200);
 });
 
+export const getListingContentRoute = httpAction(async (ctx, request) => {
+  if (request.method !== "GET") {
+    return json({ error: "Method not allowed" }, 405);
+  }
+
+  const listingId = listingContentIdFromPathname(new URL(request.url).pathname);
+  if (!listingId) {
+    return json({ error: "Listing id is required" }, 400);
+  }
+
+  const listing = await ctx.runQuery(getListing, { listingId });
+  if (!listing) {
+    return json({ error: "Listing not found" }, 404);
+  }
+
+  const buyerWallet = asNonEmptyString(request.headers.get("x-buyer-wallet"));
+  if (buyerWallet) {
+    const existingPurchase = await ctx.runQuery(
+      getPurchaseByListingAndBuyerWallet,
+      {
+        listingId,
+        buyerWallet,
+      },
+    );
+    if (existingPurchase) {
+      return await listingContentJson(ctx, listing, buyerWallet, true);
+    }
+  }
+
+  const txHash = asNonEmptyString(request.headers.get("x-payment-tx"));
+  if (buyerWallet && txHash) {
+    await ctx.runMutation(recordPurchase, {
+      listingId,
+      buyerWallet,
+      amountPaid: listing.priceUsdc,
+      txHash,
+    });
+
+    return await listingContentJson(ctx, listing, buyerWallet, false);
+  }
+
+  return json(
+    {
+      error: "Payment required",
+      payment: {
+        scheme: "x402",
+        network: "base",
+        currency: "USDC",
+        amountUsdc: listing.priceUsdc,
+        destinationWallet: process.env.PLATFORM_WALLET ?? null,
+      },
+    },
+    402,
+  );
+});
+
 http.route({
   path: "/api/register",
   method: "POST",
@@ -204,6 +262,12 @@ http.route({
   path: "/api/listings/:id",
   method: "GET",
   handler: getListingRoute,
+});
+
+http.route({
+  path: "/api/listings/:id/content",
+  method: "GET",
+  handler: getListingContentRoute,
 });
 
 export default http;
@@ -262,4 +326,45 @@ function listingIdFromPathname(pathname: string): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+function listingContentIdFromPathname(pathname: string): string | undefined {
+  const segments = pathname.split("/").filter(Boolean);
+  if (
+    segments.length !== 4 ||
+    segments[0] !== "api" ||
+    segments[1] !== "listings" ||
+    segments[3] !== "content"
+  ) {
+    return undefined;
+  }
+
+  try {
+    return asNonEmptyString(decodeURIComponent(segments[2]));
+  } catch {
+    return undefined;
+  }
+}
+
+async function listingContentJson(
+  ctx: { storage?: { getUrl?: (id: string) => Promise<string | null> } },
+  listing: { _id: string; fileStorageId: string },
+  buyerWallet: string,
+  hasPurchased: boolean,
+): Promise<Response> {
+  const contentUrl =
+    typeof ctx.storage?.getUrl === "function"
+      ? await ctx.storage.getUrl(listing.fileStorageId)
+      : null;
+
+  return json(
+    {
+      listingId: listing._id,
+      buyerWallet,
+      hasPurchased,
+      fileStorageId: listing.fileStorageId,
+      contentUrl,
+    },
+    200,
+  );
 }

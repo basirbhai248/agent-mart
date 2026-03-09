@@ -6,6 +6,7 @@ const { recoverCreator } = await import("./http.ts");
 const { createListingRoute } = await import("./http.ts");
 const { listListingsRoute } = await import("./http.ts");
 const { getListingRoute } = await import("./http.ts");
+const { getListingContentRoute } = await import("./http.ts");
 const { buildRecoveryMessage, privateKeyToWalletAddress, signRecoveryMessage } =
   await import("./wallet.ts");
 
@@ -557,4 +558,213 @@ test("getListingRoute returns listing metadata by id", async () => {
   assert.deepEqual(await response.json(), listing);
   assert.equal(queryCalls.length, 1);
   assert.deepEqual(queryCalls[0].args, { listingId: "listing_1" });
+});
+
+test("getListingContentRoute returns 405 for non-GET methods", async () => {
+  let queryCalled = false;
+  const ctx = {
+    runQuery: async () => {
+      queryCalled = true;
+      return null;
+    },
+    runMutation: async () => "purchase_1",
+  };
+
+  const request = new Request(
+    "https://example.com/api/listings/listing_1/content",
+    {
+      method: "POST",
+    },
+  );
+
+  const response = await getListingContentRoute._handler(ctx, request);
+
+  assert.equal(response.status, 405);
+  assert.deepEqual(await response.json(), { error: "Method not allowed" });
+  assert.equal(queryCalled, false);
+});
+
+test("getListingContentRoute returns 404 when listing does not exist", async () => {
+  const queryCalls = [];
+  const ctx = {
+    runQuery: async (ref, args) => {
+      queryCalls.push({ ref, args });
+      return null;
+    },
+    runMutation: async () => "purchase_1",
+  };
+
+  const request = new Request(
+    "https://example.com/api/listings/listing_1/content",
+    {
+      method: "GET",
+    },
+  );
+
+  const response = await getListingContentRoute._handler(ctx, request);
+
+  assert.equal(response.status, 404);
+  assert.deepEqual(await response.json(), { error: "Listing not found" });
+  assert.equal(queryCalls.length, 1);
+  assert.deepEqual(queryCalls[0].args, { listingId: "listing_1" });
+});
+
+test("getListingContentRoute returns 402 with payment requirements when unpaid", async () => {
+  const queryCalls = [];
+  const originalPlatformWallet = process.env.PLATFORM_WALLET;
+  process.env.PLATFORM_WALLET = "0xplatform";
+
+  try {
+    const ctx = {
+      runQuery: async (ref, args) => {
+        queryCalls.push({ ref, args });
+        return {
+          _id: "listing_1",
+          priceUsdc: 25,
+          fileStorageId: "file_1",
+        };
+      },
+      runMutation: async () => "purchase_1",
+    };
+
+    const request = new Request(
+      "https://example.com/api/listings/listing_1/content",
+      {
+        method: "GET",
+      },
+    );
+
+    const response = await getListingContentRoute._handler(ctx, request);
+
+    assert.equal(response.status, 402);
+    assert.deepEqual(await response.json(), {
+      error: "Payment required",
+      payment: {
+        scheme: "x402",
+        network: "base",
+        currency: "USDC",
+        amountUsdc: 25,
+        destinationWallet: "0xplatform",
+      },
+    });
+    assert.equal(queryCalls.length, 1);
+    assert.deepEqual(queryCalls[0].args, { listingId: "listing_1" });
+  } finally {
+    if (originalPlatformWallet === undefined) {
+      delete process.env.PLATFORM_WALLET;
+    } else {
+      process.env.PLATFORM_WALLET = originalPlatformWallet;
+    }
+  }
+});
+
+test("getListingContentRoute returns content without payment when already purchased", async () => {
+  const queryCalls = [];
+  let mutationCalled = false;
+  const listing = {
+    _id: "listing_1",
+    priceUsdc: 25,
+    fileStorageId: "file_1",
+  };
+  const existingPurchase = {
+    _id: "purchase_1",
+    listingId: "listing_1",
+    buyerWallet: "0xbuyer",
+  };
+  const ctx = {
+    runQuery: async (ref, args) => {
+      queryCalls.push({ ref, args });
+      return queryCalls.length === 1 ? listing : existingPurchase;
+    },
+    runMutation: async () => {
+      mutationCalled = true;
+      return "purchase_2";
+    },
+    storage: {
+      getUrl: async (id) => `https://cdn.example/${id}`,
+    },
+  };
+
+  const request = new Request(
+    "https://example.com/api/listings/listing_1/content",
+    {
+      method: "GET",
+      headers: {
+        "x-buyer-wallet": "0xbuyer",
+      },
+    },
+  );
+
+  const response = await getListingContentRoute._handler(ctx, request);
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    listingId: "listing_1",
+    buyerWallet: "0xbuyer",
+    hasPurchased: true,
+    fileStorageId: "file_1",
+    contentUrl: "https://cdn.example/file_1",
+  });
+  assert.equal(queryCalls.length, 2);
+  assert.deepEqual(queryCalls[0].args, { listingId: "listing_1" });
+  assert.deepEqual(queryCalls[1].args, {
+    listingId: "listing_1",
+    buyerWallet: "0xbuyer",
+  });
+  assert.equal(mutationCalled, false);
+});
+
+test("getListingContentRoute records purchase and returns content for paid request", async () => {
+  const queryCalls = [];
+  const mutationCalls = [];
+  const listing = {
+    _id: "listing_1",
+    priceUsdc: 25,
+    fileStorageId: "file_1",
+  };
+  const ctx = {
+    runQuery: async (ref, args) => {
+      queryCalls.push({ ref, args });
+      return queryCalls.length === 1 ? listing : null;
+    },
+    runMutation: async (ref, args) => {
+      mutationCalls.push({ ref, args });
+      return "purchase_1";
+    },
+  };
+
+  const request = new Request(
+    "https://example.com/api/listings/listing_1/content",
+    {
+      method: "GET",
+      headers: {
+        "x-buyer-wallet": "0xbuyer",
+        "x-payment-tx": "0xtxhash",
+      },
+    },
+  );
+
+  const response = await getListingContentRoute._handler(ctx, request);
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    listingId: "listing_1",
+    buyerWallet: "0xbuyer",
+    hasPurchased: false,
+    fileStorageId: "file_1",
+    contentUrl: null,
+  });
+  assert.equal(queryCalls.length, 2);
+  assert.deepEqual(queryCalls[0].args, { listingId: "listing_1" });
+  assert.deepEqual(queryCalls[1].args, {
+    listingId: "listing_1",
+    buyerWallet: "0xbuyer",
+  });
+  assert.equal(mutationCalls.length, 1);
+  assert.deepEqual(mutationCalls[0].args, {
+    listingId: "listing_1",
+    buyerWallet: "0xbuyer",
+    amountPaid: 25,
+    txHash: "0xtxhash",
+  });
 });
