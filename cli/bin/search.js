@@ -72,42 +72,6 @@ async function parseResponseError(response) {
   return text || "Unknown error";
 }
 
-async function readResponseText(response) {
-  if (typeof response?.text === "function") {
-    return await response.text();
-  }
-
-  const body = response?.body;
-  if (!body) {
-    throw new Error("Search response body is missing");
-  }
-
-  if (typeof body.getReader === "function") {
-    const reader = body.getReader();
-    const decoder = new TextDecoder();
-    let text = "";
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
-        break;
-      }
-      text += decoder.decode(value, { stream: true });
-    }
-    text += decoder.decode();
-    return text;
-  }
-
-  if (typeof body[Symbol.asyncIterator] === "function") {
-    let text = "";
-    for await (const chunk of body) {
-      text += typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
-    }
-    return text;
-  }
-
-  throw new Error("Search response body is unreadable");
-}
-
 export async function searchListings(queryInput, options = {}, deps = {}) {
   const query = normalizeRequiredOption(queryInput, "<query>");
   const apiUrl = resolveApiUrl({ apiUrl: options.apiUrl, env: deps.env });
@@ -129,13 +93,7 @@ export async function searchListings(queryInput, options = {}, deps = {}) {
     throw new Error(`Search failed (${response.status}): ${errorMessage}`);
   }
 
-  const responseText = await readResponseText(response);
-  let payload;
-  try {
-    payload = JSON.parse(responseText);
-  } catch {
-    throw new Error("Search response must be valid JSON");
-  }
+  const payload = await response.json();
   if (!Array.isArray(payload)) {
     throw new Error("Search response must be an array");
   }
@@ -143,38 +101,10 @@ export async function searchListings(queryInput, options = {}, deps = {}) {
   return payload;
 }
 
-function isNetworkSearchError(error) {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-
-  if (error.name === "TypeError" && error.message === "fetch failed") {
-    return true;
-  }
-
-  const causeCode = error.cause?.code;
-  return (
-    causeCode === "EAI_AGAIN" ||
-    causeCode === "ENOTFOUND" ||
-    causeCode === "ECONNREFUSED" ||
-    causeCode === "ECONNRESET" ||
-    causeCode === "ETIMEDOUT"
-  );
-}
-
 export function createSearchAction(deps = {}) {
   const logger = deps.logger ?? console;
   return async (query, options) => {
-    let listings;
-    try {
-      listings = await searchListings(query, options, deps);
-    } catch (error) {
-      if (!isNetworkSearchError(error)) {
-        throw error;
-      }
-      listings = [];
-    }
-
+    const listings = await searchListings(query, options, deps);
     logger.log(formatSearchResultsTable(listings));
   };
 }

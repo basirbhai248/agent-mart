@@ -46,15 +46,16 @@ export async function proxyToConvex(request: Request, path: string): Promise<Res
     redirect: "manual",
   });
 
-  const body = await upstream.arrayBuffer();
+  const bodyText = await upstream.text();
   const responseHeaders = new Headers();
   upstream.headers.forEach((value, key) => {
     if (!["transfer-encoding", "content-encoding", "connection"].includes(key.toLowerCase())) {
       responseHeaders.set(key, value);
     }
   });
+  responseHeaders.delete("content-length");
 
-  return new Response(body, {
+  return new Response(bodyText, {
     status: upstream.status,
     statusText: upstream.statusText,
     headers: responseHeaders,
