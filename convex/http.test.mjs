@@ -1334,6 +1334,7 @@ test("getListingContentRoute returns 402 with payment requirements when unpaid",
       payment: {
         scheme: "x402",
         network: "base",
+        facilitator: null,
         currency: "USDC",
         amountUsdc: 25,
         destinationWallet: "0xplatform",
@@ -1346,6 +1347,64 @@ test("getListingContentRoute returns 402 with payment requirements when unpaid",
       delete process.env.PLATFORM_WALLET;
     } else {
       process.env.PLATFORM_WALLET = originalPlatformWallet;
+    }
+  }
+});
+
+test("getListingContentRoute returns Base Sepolia payment requirements on testnet", async () => {
+  const queryCalls = [];
+  const originalPlatformWallet = process.env.PLATFORM_WALLET;
+  const originalNetwork = process.env.NEXT_PUBLIC_NETWORK;
+  process.env.PLATFORM_WALLET = "0xplatform";
+  process.env.NEXT_PUBLIC_NETWORK = "testnet";
+
+  try {
+    const ctx = {
+      runQuery: async (ref, args) => {
+        queryCalls.push({ ref, args });
+        return {
+          _id: "listing_1",
+          priceUsdc: 25,
+          fileStorageId: "file_1",
+        };
+      },
+      runMutation: async () => "purchase_1",
+    };
+
+    const request = new Request(
+      "https://example.com/api/listing/content?id=listing_1",
+      {
+        method: "GET",
+      },
+    );
+
+    const response = await getListingContentRoute._handler(ctx, request);
+
+    assert.equal(response.status, 402);
+    assert.deepEqual(await response.json(), {
+      error: "Payment required",
+      payment: {
+        scheme: "x402",
+        network: "base-sepolia",
+        facilitator: "https://x402.org/facilitator",
+        currency: "USDC",
+        amountUsdc: 25,
+        destinationWallet: "0xplatform",
+      },
+    });
+    assert.equal(queryCalls.length, 1);
+    assert.deepEqual(queryCalls[0].args, { listingId: "listing_1" });
+  } finally {
+    if (originalPlatformWallet === undefined) {
+      delete process.env.PLATFORM_WALLET;
+    } else {
+      process.env.PLATFORM_WALLET = originalPlatformWallet;
+    }
+
+    if (originalNetwork === undefined) {
+      delete process.env.NEXT_PUBLIC_NETWORK;
+    } else {
+      process.env.NEXT_PUBLIC_NETWORK = originalNetwork;
     }
   }
 });

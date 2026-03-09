@@ -4,6 +4,7 @@ import type { Id } from "./_generated/dataModel.js";
 import { buildRecoveryMessage, recoverWalletAddress } from "./wallet.ts";
 
 const http = httpRouter();
+const TESTNET_FACILITATOR_URL = "https://x402.org/facilitator";
 
 export const registerCreator = httpAction(async (ctx, request) => {
   if (request.method !== "POST") {
@@ -347,12 +348,15 @@ export const getListingContentRoute = httpAction(async (ctx, request) => {
     return await listingContentJson(ctx, listing, buyerWallet, false);
   }
 
+  const isTestnet = isTestnetNetworkRequest(request);
+
   return json(
     {
       error: "Payment required",
       payment: {
         scheme: "x402",
-        network: "base",
+        network: isTestnet ? "base-sepolia" : "base",
+        facilitator: isTestnet ? TESTNET_FACILITATOR_URL : null,
         currency: "USDC",
         amountUsdc: listing.priceUsdc,
         destinationWallet: process.env.PLATFORM_WALLET ?? null,
@@ -361,6 +365,20 @@ export const getListingContentRoute = httpAction(async (ctx, request) => {
     402,
   );
 });
+
+function isTestnetNetworkRequest(request: Request): boolean {
+  const headerNetwork = asNonEmptyString(
+    request.headers.get("x-agentmart-network"),
+  );
+  if (headerNetwork?.toLowerCase() === "testnet") {
+    return true;
+  }
+
+  return (
+    process.env.NEXT_PUBLIC_NETWORK?.trim().toLowerCase() === "testnet" ||
+    process.env.CONVEX_TESTNET?.trim().toLowerCase() === "true"
+  );
+}
 
 http.route({
   path: "/",

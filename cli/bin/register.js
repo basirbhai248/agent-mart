@@ -1,6 +1,7 @@
 import { resolvePrivateKey, setApiKey } from "./config.js";
 
 export const DEFAULT_API_URL = "https://agent-mart-beryl.vercel.app";
+const TESTNET_ENV_KEY = "AGENTMART_TESTNET";
 
 export function normalizeRequiredOption(value, optionName) {
   if (typeof value !== "string") {
@@ -20,8 +21,16 @@ export function resolveApiUrl({ apiUrl, env = process.env } = {}) {
   return new URL(value).toString();
 }
 
+export function resolvePaymentNetwork({ testnet = false, env = process.env } = {}) {
+  const envEnabled =
+    typeof env[TESTNET_ENV_KEY] === "string" &&
+    env[TESTNET_ENV_KEY].trim().toLowerCase() === "true";
+  return testnet || envEnabled ? "base-sepolia" : "base";
+}
+
 async function buildPaymentFetch({
   privateKey,
+  network,
   fetchImpl = globalThis.fetch,
   wrapFetchWithPayment,
   privateKeyToAccount,
@@ -41,7 +50,7 @@ async function buildPaymentFetch({
   }
 
   const account = toAccount(privateKey);
-  return wrapPayment(fetchImpl, { account });
+  return wrapPayment(fetchImpl, { account, network });
 }
 
 async function parseResponseError(response) {
@@ -73,6 +82,7 @@ export async function registerCreator(options, deps = {}) {
 
   const paidFetch = await buildPaymentFetch({
     privateKey,
+    network: resolvePaymentNetwork({ testnet: options.testnet, env: deps.env }),
     fetchImpl: deps.fetchImpl,
     wrapFetchWithPayment: deps.wrapFetchWithPayment,
     privateKeyToAccount: deps.privateKeyToAccount,

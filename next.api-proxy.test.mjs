@@ -42,10 +42,37 @@ test("proxyToConvex forwards POST requests to Convex with body and headers", asy
   assert.equal(calledInit.method, "POST");
   assert.equal(calledInit.redirect, "manual");
   assert.equal(calledInit.headers.get("authorization"), "Bearer key_123");
+  assert.equal(calledInit.headers.get("x-agentmart-network"), "mainnet");
   assert.equal(calledInit.headers.get("host"), null);
 
   const bodyText = new TextDecoder().decode(calledInit.body);
   assert.equal(bodyText, JSON.stringify({ wallet: "0xabc" }));
+});
+
+test("proxyToConvex sets testnet network header when NEXT_PUBLIC_NETWORK=testnet", async (t) => {
+  process.env.CONVEX_SITE_URL = "https://example.convex.cloud";
+  process.env.NEXT_PUBLIC_NETWORK = "testnet";
+
+  let calledInit;
+
+  globalThis.fetch = async (_url, init) => {
+    calledInit = init;
+    return new Response("{}", {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    delete process.env.NEXT_PUBLIC_NETWORK;
+  });
+
+  const request = new Request("https://localhost:3000/api/listings");
+  const response = await proxyToConvex(request, "/api/listings");
+
+  assert.equal(response.status, 200);
+  assert.equal(calledInit.headers.get("x-agentmart-network"), "testnet");
 });
 
 test("proxyToConvex forwards GET query params to Convex", async (t) => {

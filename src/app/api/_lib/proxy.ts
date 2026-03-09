@@ -1,4 +1,9 @@
 const CONVEX_BASE_URL_ENV = "CONVEX_SITE_URL";
+const NETWORK_ENV = "NEXT_PUBLIC_NETWORK";
+
+function normalizedNetwork(value: string | undefined): "mainnet" | "testnet" {
+  return value?.trim().toLowerCase() === "testnet" ? "testnet" : "mainnet";
+}
 
 function getConvexBaseUrl(): string {
   const value = process.env[CONVEX_BASE_URL_ENV]?.trim();
@@ -32,6 +37,7 @@ async function requestBody(request: Request): Promise<ArrayBuffer | undefined> {
 export async function proxyToConvex(request: Request, path: string): Promise<Response> {
   const headers = new Headers(request.headers);
   headers.delete("host");
+  headers.set("x-agentmart-network", normalizedNetwork(process.env[NETWORK_ENV]));
 
   const upstream = await fetch(buildConvexUrl(request.url, path), {
     method: request.method,

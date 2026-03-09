@@ -31,6 +31,7 @@ export function createProgram() {
     .requiredOption("--wallet <addr>", "Creator wallet address")
     .requiredOption("--name <name>", "Creator display name")
     .requiredOption("--bio <bio>", "Creator bio")
+    .option("--testnet", "Use Base Sepolia for payment")
     .action(createRegisterAction());
 
   program
@@ -64,6 +65,7 @@ export function createProgram() {
     .command(`${BUY_COMMAND_NAME} <listing-id>`)
     .description("Buy a listing and save its content to a local file")
     .option("--output <file>", "Output file path")
+    .option("--testnet", "Use Base Sepolia for payment")
     .action(createBuyAction());
 
   program

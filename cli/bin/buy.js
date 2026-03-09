@@ -2,7 +2,11 @@ import fs from "node:fs/promises";
 
 import { resolvePrivateKey } from "./config.js";
 import { recordPurchasedContent } from "./purchases.js";
-import { DEFAULT_API_URL, normalizeRequiredOption } from "./register.js";
+import {
+  DEFAULT_API_URL,
+  normalizeRequiredOption,
+  resolvePaymentNetwork,
+} from "./register.js";
 
 function defaultOutputPath(listingId) {
   return `${listingId.replace(/[^a-zA-Z0-9._-]/g, "_")}.txt`;
@@ -10,6 +14,7 @@ function defaultOutputPath(listingId) {
 
 async function buildPaymentFetch({
   privateKey,
+  network,
   fetchImpl = globalThis.fetch,
   wrapFetchWithPayment,
   privateKeyToAccount,
@@ -29,7 +34,7 @@ async function buildPaymentFetch({
   }
 
   const account = toAccount(privateKey);
-  return wrapPayment(fetchImpl, { account });
+  return wrapPayment(fetchImpl, { account, network });
 }
 
 async function parseResponseError(response) {
@@ -80,6 +85,7 @@ export async function buyListing(listingIdInput, options = {}, deps = {}) {
 
   const paidFetch = await buildPaymentFetch({
     privateKey,
+    network: resolvePaymentNetwork({ testnet: options.testnet, env: deps.env }),
     fetchImpl: deps.fetchImpl,
     wrapFetchWithPayment: deps.wrapFetchWithPayment,
     privateKeyToAccount: deps.privateKeyToAccount,

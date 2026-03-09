@@ -53,6 +53,7 @@ test("buyListing calls paid GET Vercel proxy /api/listings/<id>/content and writ
   assert.equal(result.outputPath, "listing_1.txt");
   assert.deepEqual(calls.privateKeyToAccount, ["0xprivate"]);
   assert.equal(calls.wrapFetchWithPayment.length, 1);
+  assert.equal(calls.wrapFetchWithPayment[0].options.network, "base");
   assert.equal(calls.paidFetch.length, 1);
   assert.equal(
     calls.paidFetch[0].url,
@@ -72,6 +73,54 @@ test("buyListing calls paid GET Vercel proxy /api/listings/<id>/content and writ
       content: "paid content",
     },
   ]);
+});
+
+test("buyListing uses Base Sepolia when --testnet flag or env var is set", async () => {
+  const calls = { wrapFetchWithPayment: [] };
+
+  await buyListing(
+    "listing_1",
+    { testnet: true },
+    {
+      resolvePrivateKey: async () => "0xprivate",
+      privateKeyToAccount: () => ({ address: "0xabc" }),
+      fetchImpl: async () => new Response("inline", { status: 200 }),
+      wrapFetchWithPayment: (_fetchImpl, options) => {
+        calls.wrapFetchWithPayment.push(options);
+        return async () =>
+          new Response(JSON.stringify({ content: "inline" }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
+      },
+      fsModule: { writeFile: async () => {} },
+      recordPurchasedContent: async () => {},
+    },
+  );
+
+  await buyListing(
+    "listing_2",
+    {},
+    {
+      env: { AGENTMART_TESTNET: "true" },
+      resolvePrivateKey: async () => "0xprivate",
+      privateKeyToAccount: () => ({ address: "0xabc" }),
+      fetchImpl: async () => new Response("inline", { status: 200 }),
+      wrapFetchWithPayment: (_fetchImpl, options) => {
+        calls.wrapFetchWithPayment.push(options);
+        return async () =>
+          new Response(JSON.stringify({ content: "inline" }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
+      },
+      fsModule: { writeFile: async () => {} },
+      recordPurchasedContent: async () => {},
+    },
+  );
+
+  assert.equal(calls.wrapFetchWithPayment[0].network, "base-sepolia");
+  assert.equal(calls.wrapFetchWithPayment[1].network, "base-sepolia");
 });
 
 test("buyListing supports inline content and --output override", async () => {

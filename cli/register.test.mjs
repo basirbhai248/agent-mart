@@ -6,6 +6,7 @@ import {
   normalizeRequiredOption,
   registerCreator,
   resolveApiUrl,
+  resolvePaymentNetwork,
 } from "./bin/register.js";
 
 test("normalizeRequiredOption trims and validates values", () => {
@@ -24,6 +25,15 @@ test("resolveApiUrl uses explicit value, env fallback, then default", () => {
     "https://agentmart.dev/",
   );
   assert.equal(resolveApiUrl({ env: {} }), "https://agent-mart-beryl.vercel.app/");
+});
+
+test("resolvePaymentNetwork uses flag or env var for Base Sepolia", () => {
+  assert.equal(resolvePaymentNetwork({}), "base");
+  assert.equal(resolvePaymentNetwork({ testnet: true }), "base-sepolia");
+  assert.equal(
+    resolvePaymentNetwork({ env: { AGENTMART_TESTNET: "true" } }),
+    "base-sepolia",
+  );
 });
 
 test("registerCreator posts /api/register and returns api key", async () => {
@@ -65,6 +75,7 @@ test("registerCreator posts /api/register and returns api key", async () => {
   assert.equal(result.apiKey, "api_123");
   assert.deepEqual(calls.privateKeyToAccount, ["0xprivate"]);
   assert.equal(calls.wrapFetchWithPayment.length, 1);
+  assert.equal(calls.wrapFetchWithPayment[0].options.network, "base");
   assert.equal(calls.paidFetch.length, 1);
   assert.equal(calls.paidFetch[0].url, "https://agentmart.dev/api/register");
   assert.equal(calls.paidFetch[0].init.method, "POST");
@@ -76,6 +87,29 @@ test("registerCreator posts /api/register and returns api key", async () => {
     displayName: "Builder Name",
     bio: "sells guides",
   });
+});
+
+test("registerCreator uses Base Sepolia when --testnet is set", async () => {
+  const calls = { wrapFetchWithPayment: [] };
+
+  await registerCreator(
+    { wallet: "0xabc", name: "Builder", bio: "bio", testnet: true },
+    {
+      resolvePrivateKey: async () => "0xprivate",
+      privateKeyToAccount: () => ({ address: "0xabc" }),
+      fetchImpl: async () => {},
+      wrapFetchWithPayment: (_fetchImpl, options) => {
+        calls.wrapFetchWithPayment.push(options);
+        return async () =>
+          new Response(JSON.stringify({ apiKey: "api_123" }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
+      },
+    },
+  );
+
+  assert.equal(calls.wrapFetchWithPayment[0].network, "base-sepolia");
 });
 
 test("registerCreator fails when private key is missing", async () => {
