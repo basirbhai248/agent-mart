@@ -56,6 +56,35 @@ test("searchListings validates query and surfaces API errors", async () => {
   );
 });
 
+test("searchListings reads full chunked response body before parsing JSON", async () => {
+  const encoder = new TextEncoder();
+  const body = new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode('[{"_id":"listing_1",'));
+      controller.enqueue(
+        encoder.encode('"title":"Chunked","priceUsdc":1,"creatorId":"creator_1"}]'),
+      );
+      controller.close();
+    },
+  });
+
+  const result = await searchListings(
+    "chunked",
+    { apiUrl: "https://agentmart.dev" },
+    {
+      fetchImpl: async () => ({
+        ok: true,
+        status: 200,
+        body,
+      }),
+    },
+  );
+
+  assert.equal(Array.isArray(result), true);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].title, "Chunked");
+});
+
 test("formatSearchResultsTable renders formatted rows", () => {
   const table = formatSearchResultsTable([
     {
