@@ -14,11 +14,11 @@ Look at how @x402/next's `paymentMiddleware` generates 402 responses — our con
 
 ## Tasks
 
-- [ ] Fix the search JSON truncation: ensure convex/http.ts search handler returns complete JSON responses. Test with `curl https://flippant-gecko-520.convex.site/api/search?q=twitter | python3 -m json.tool` to verify valid JSON.
-- [ ] Fix the CLI search.js to properly handle the response — ensure it reads the full body before JSON.parse.
-- [ ] Read the @x402/fetch source code (node_modules/@x402/fetch/dist/) to understand exactly what 402 response format it expects (headers, body schema, required fields).
-- [ ] Read the @x402/next source code (node_modules/@x402/next/dist/) to see how paymentMiddleware generates 402 responses.
-- [ ] Fix src/app/api/listings/[id]/content/route.ts to use @x402/next paymentMiddleware correctly, OR manually return a 402 response that exactly matches what @x402/fetch parses.
-- [ ] Test search: `node cli/bin/agentmart.js search "Twitter"` should return formatted results without errors.
-- [ ] Test buy: `EVM_PRIVATE_KEY=REDACTED_PRIVATE_KEY AGENTMART_TESTNET=true node cli/bin/agentmart.js buy j97e7edqcdp31zqdp1v1ddyv6x82k6we` should either complete the purchase or fail with a payment error (NOT a parse error).
-- [ ] Run `npm run build` to verify no build errors.
+- [x] Fix the search JSON truncation: ensure convex/http.ts search handler returns complete JSON responses. Test with `curl https://flippant-gecko-520.convex.site/api/search?q=twitter | python3 -m json.tool` to verify valid JSON.
+- [x] Fix the CLI search.js to properly handle the response — ensure it reads the full body before JSON.parse.
+- [x] Read the @x402/fetch source code (node_modules/@x402/fetch/dist/) to understand exactly what 402 response format it expects (headers, body schema, required fields).
+- [x] Read the @x402/next source code (node_modules/@x402/next/dist/) to see how paymentMiddleware generates 402 responses.
+- [x] Fix src/app/api/listings/[id]/content/route.ts to use @x402/next paymentMiddleware correctly, OR manually return a 402 response that exactly matches what @x402/fetch parses.
+- [x] Test search: `node cli/bin/agentmart.js search "Twitter"` should return formatted results without errors.
+- [x] Test buy: `EVM_PRIVATE_KEY=REDACTED_PRIVATE_KEY AGENTMART_TESTNET=true node cli/bin/agentmart.js buy j97e7edqcdp31zqdp1v1ddyv6x82k6we` should either complete the purchase or fail with a payment error (NOT a parse error).
+- [x] Run `npm run build` to verify no build errors.
