@@ -28,7 +28,7 @@ test("package scripts keep convex build while adding next lifecycle scripts", as
   });
 
   assert.equal(pkg.scripts.dev, "next dev");
-  assert.equal(pkg.scripts.build, "next build");
+  assert.equal(pkg.scripts.build, "next build --webpack");
   assert.equal(pkg.scripts.start, "next start");
   assert.equal(pkg.scripts["build:convex"], "node scripts/build.mjs");
 });

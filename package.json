@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "build:convex": "node scripts/build.mjs",
     "test": "node --experimental-strip-types --test *.test.mjs convex/*.test.mjs",
