@@ -8,6 +8,7 @@ const { listListingsRoute } = await import("./http.ts");
 const { homepageRoute } = await import("./http.ts");
 const { creatorProfilePageRoute } = await import("./http.ts");
 const { searchListingsRoute } = await import("./http.ts");
+const { searchPageRoute } = await import("./http.ts");
 const { getCreatorRoute } = await import("./http.ts");
 const { getListingRoute } = await import("./http.ts");
 const { getListingContentRoute } = await import("./http.ts");
@@ -763,6 +764,89 @@ test("searchListingsRoute returns matching listings", async () => {
   assert.deepEqual(await response.json(), listings);
   assert.equal(queryCalls.length, 1);
   assert.deepEqual(queryCalls[0].args, { query: " alpha " });
+});
+
+test("searchPageRoute returns 405 for non-GET methods", async () => {
+  let queryCalled = false;
+  const ctx = {
+    runQuery: async () => {
+      queryCalled = true;
+      return [];
+    },
+  };
+
+  const request = new Request("https://example.com/search?q=alpha", {
+    method: "POST",
+  });
+
+  const response = await searchPageRoute._handler(ctx, request);
+
+  assert.equal(response.status, 405);
+  assert.deepEqual(await response.json(), { error: "Method not allowed" });
+  assert.equal(queryCalled, false);
+});
+
+test("searchPageRoute renders results page as HTML", async () => {
+  const queryCalls = [];
+  const listings = [
+    {
+      _id: "listing_1",
+      title: 'Alpha "Pack"',
+      description: "First <listing>",
+      priceUsdc: 12.5,
+    },
+  ];
+  const ctx = {
+    runQuery: async (ref, args) => {
+      queryCalls.push({ ref, args });
+      return listings;
+    },
+  };
+
+  const request = new Request("https://example.com/search?q=%20alpha%20", {
+    method: "GET",
+  });
+
+  const response = await searchPageRoute._handler(ctx, request);
+  const body = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.equal(
+    response.headers.get("content-type"),
+    "text/html; charset=utf-8",
+  );
+  assert.equal(queryCalls.length, 1);
+  assert.deepEqual(queryCalls[0].args, { query: " alpha " });
+  assert.match(body, /Search results for "alpha"/);
+  assert.match(body, /1 result found/);
+  assert.match(body, /Alpha &quot;Pack&quot;/);
+  assert.match(body, /First &lt;listing&gt;/);
+  assert.match(body, /\$12\.50 USDC/);
+  assert.match(body, /name="q" value=" alpha "/);
+});
+
+test("searchPageRoute renders guidance for blank query", async () => {
+  const queryCalls = [];
+  const ctx = {
+    runQuery: async (ref, args) => {
+      queryCalls.push({ ref, args });
+      return [];
+    },
+  };
+
+  const request = new Request("https://example.com/search", {
+    method: "GET",
+  });
+
+  const response = await searchPageRoute._handler(ctx, request);
+  const body = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.equal(queryCalls.length, 1);
+  assert.deepEqual(queryCalls[0].args, { query: "" });
+  assert.match(body, /Search listings/);
+  assert.match(body, /Enter a keyword to search titles and descriptions\./);
+  assert.match(body, /Try searching for terms like/);
 });
 
 test("getCreatorRoute returns 405 for non-GET methods", async () => {

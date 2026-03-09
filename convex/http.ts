@@ -219,6 +219,16 @@ export const searchListingsRoute = httpAction(async (ctx, request) => {
   return json(listings, 200);
 });
 
+export const searchPageRoute = httpAction(async (ctx, request) => {
+  if (request.method !== "GET") {
+    return json({ error: "Method not allowed" }, 405);
+  }
+
+  const query = new URL(request.url).searchParams.get("q") ?? "";
+  const listings = await ctx.runQuery(searchListings, { query });
+  return html(renderSearchResultsPage(query, listings), 200);
+});
+
 export const getCreatorRoute = httpAction(async (ctx, request) => {
   if (request.method !== "GET") {
     return json({ error: "Method not allowed" }, 405);
@@ -368,6 +378,12 @@ http.route({
   path: "/api/search",
   method: "GET",
   handler: searchListingsRoute,
+});
+
+http.route({
+  path: "/search",
+  method: "GET",
+  handler: searchPageRoute,
 });
 
 http.route({
@@ -564,6 +580,78 @@ function renderCreatorNotFound(wallet: string): string {
     <main>
       <h1>Creator Not Found</h1>
       <p>No creator profile exists for wallet: ${escapeHtml(wallet)}</p>
+    </main>
+  </body>
+</html>`;
+}
+
+function renderSearchResultsPage(
+  query: string,
+  listings: Array<{
+    _id: string;
+    title: string;
+    description: string;
+    priceUsdc: number;
+  }>,
+): string {
+  const normalizedQuery = query.trim();
+  const heading = normalizedQuery
+    ? `Search results for "${escapeHtml(normalizedQuery)}"`
+    : "Search listings";
+  const summary = normalizedQuery
+    ? `${listings.length} result${listings.length === 1 ? "" : "s"} found`
+    : "Enter a keyword to search titles and descriptions.";
+
+  let resultsMarkup = "";
+  if (!normalizedQuery) {
+    resultsMarkup =
+      "<p>Try searching for terms like &quot;agent&quot; or &quot;guide&quot;.</p>";
+  } else if (listings.length === 0) {
+    resultsMarkup = "<p>No listings matched your search.</p>";
+  } else {
+    resultsMarkup = `<ul>${listings
+      .map(
+        (listing) =>
+          `<li><article><h2>${escapeHtml(listing.title)}</h2><p>${escapeHtml(listing.description)}</p><p><strong>$${listing.priceUsdc.toFixed(2)} USDC</strong></p><a href="/api/listings/${encodeURIComponent(listing._id)}">View listing</a></article></li>`,
+      )
+      .join("")}</ul>`;
+  }
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${normalizedQuery ? `${escapeHtml(normalizedQuery)} | ` : ""}Search | Agent Mart</title>
+    <style>
+      :root { color-scheme: light; }
+      body { font-family: "Segoe UI", Tahoma, sans-serif; margin: 0; background: linear-gradient(180deg, #f5fff8 0%, #fff 50%, #eef6ff 100%); color: #1a2a3a; }
+      main { max-width: 840px; margin: 0 auto; padding: 36px 20px 56px; }
+      h1 { margin: 0 0 8px; font-size: clamp(1.8rem, 4vw, 2.4rem); }
+      p { margin: 0 0 14px; line-height: 1.45; color: #324a61; }
+      form { margin: 0 0 20px; display: flex; gap: 10px; }
+      input[type="search"] { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid #bbcee6; border-radius: 10px; font: inherit; }
+      button { border: 0; border-radius: 10px; padding: 10px 14px; background: #00654f; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+      ul { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 12px; }
+      article { background: #fff; border: 1px solid #d7e4f7; border-radius: 12px; padding: 14px; }
+      h2 { margin: 0 0 6px; font-size: 1.15rem; color: #18273a; }
+      a { color: #0a4ecf; font-weight: 600; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      @media (max-width: 600px) {
+        form { flex-direction: column; }
+        button { width: 100%; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>${heading}</h1>
+      <p>${summary}</p>
+      <form method="GET" action="/search">
+        <input type="search" name="q" value="${escapeHtml(query)}" placeholder="Search listings">
+        <button type="submit">Search</button>
+      </form>
+      ${resultsMarkup}
     </main>
   </body>
 </html>`;
