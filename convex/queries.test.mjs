@@ -123,6 +123,46 @@ test("getCreatorByWallet uses by_wallet index and returns unique creator", async
   ]);
 });
 
+test("getCreatorByApiKey uses by_apiKey index and returns unique creator", async () => {
+  const { getCreatorByApiKey } = queries;
+  const expected = { _id: "creator_1", apiKey: "key_123" };
+  const calls = [];
+  const ctx = {
+    db: {
+      query: (table) => {
+        calls.push(["query", table]);
+        return {
+          withIndex: (indexName, cb) => {
+            calls.push(["withIndex", indexName]);
+            const indexBuilder = {
+              eq: (field, value) => {
+                calls.push(["eq", field, value]);
+                return "index_filter";
+              },
+            };
+            cb(indexBuilder);
+            return {
+              unique: async () => {
+                calls.push(["unique"]);
+                return expected;
+              },
+            };
+          },
+        };
+      },
+    },
+  };
+
+  const result = await getCreatorByApiKey._handler(ctx, { apiKey: "key_123" });
+  assert.equal(result, expected);
+  assert.deepEqual(calls, [
+    ["query", "creators"],
+    ["withIndex", "by_apiKey"],
+    ["eq", "apiKey", "key_123"],
+    ["unique"],
+  ]);
+});
+
 test("getCreatorListings uses by_creatorId index and returns listings", async () => {
   const { getCreatorListings } = queries;
   const expected = [{ _id: "listing_1", creatorId: "creator_1" }];

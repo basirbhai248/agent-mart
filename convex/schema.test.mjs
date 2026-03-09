@@ -22,6 +22,10 @@ test("schema defines expected indexes and fields", () => {
       indexDescriptor: "by_wallet",
       fields: ["wallet"],
     },
+    {
+      indexDescriptor: "by_apiKey",
+      fields: ["apiKey"],
+    },
   ]);
   assert.equal(
     tables.creators.documentType.value.wallet.fieldType.type,

@@ -9,7 +9,9 @@ export default defineSchema({
     twitterHandle: v.optional(v.string()),
     apiKey: v.string(),
     createdAt: v.number(),
-  }).index("by_wallet", ["wallet"]),
+  })
+    .index("by_wallet", ["wallet"])
+    .index("by_apiKey", ["apiKey"]),
 
   listings: defineTable({
     creatorId: v.id("creators"),

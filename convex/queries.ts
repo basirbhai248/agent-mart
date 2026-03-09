@@ -49,6 +49,18 @@ export const getCreatorByWallet = query({
   },
 });
 
+export const getCreatorByApiKey = query({
+  args: {
+    apiKey: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("creators")
+      .withIndex("by_apiKey", (q) => q.eq("apiKey", args.apiKey))
+      .unique();
+  },
+});
+
 export const getCreatorListings = query({
   args: {
     creatorId: v.id("creators"),

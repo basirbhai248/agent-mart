@@ -3,6 +3,7 @@ import test from "node:test";
 
 const { registerCreator } = await import("./http.ts");
 const { recoverCreator } = await import("./http.ts");
+const { createListingRoute } = await import("./http.ts");
 const { buildRecoveryMessage, privateKeyToWalletAddress, signRecoveryMessage } =
   await import("./wallet.ts");
 
@@ -293,4 +294,152 @@ test("recoverCreator rotates api key for valid signature", async () => {
   } finally {
     crypto.randomUUID = originalRandomUUID;
   }
+});
+
+test("createListingRoute returns 401 when API key is missing", async () => {
+  let queryCalled = false;
+  let mutationCalled = false;
+  const ctx = {
+    runQuery: async () => {
+      queryCalled = true;
+      return null;
+    },
+    runMutation: async () => {
+      mutationCalled = true;
+      return "listing_1";
+    },
+  };
+
+  const request = new Request("https://example.com/api/listings", {
+    method: "POST",
+    body: JSON.stringify({
+      title: "Alpha",
+      description: "Desc",
+      priceUsdc: 10,
+      fileStorageId: "file_1",
+    }),
+  });
+
+  const response = await createListingRoute._handler(ctx, request);
+
+  assert.equal(response.status, 401);
+  assert.deepEqual(await response.json(), { error: "API key required" });
+  assert.equal(queryCalled, false);
+  assert.equal(mutationCalled, false);
+});
+
+test("createListingRoute returns 401 for invalid API key", async () => {
+  let mutationCalled = false;
+  const queryCalls = [];
+  const ctx = {
+    runQuery: async (ref, args) => {
+      queryCalls.push({ ref, args });
+      return null;
+    },
+    runMutation: async () => {
+      mutationCalled = true;
+      return "listing_1";
+    },
+  };
+
+  const request = new Request("https://example.com/api/listings", {
+    method: "POST",
+    headers: {
+      authorization: "Bearer key_bad",
+    },
+    body: JSON.stringify({
+      title: "Alpha",
+      description: "Desc",
+      priceUsdc: 10,
+      fileStorageId: "file_1",
+    }),
+  });
+
+  const response = await createListingRoute._handler(ctx, request);
+
+  assert.equal(response.status, 401);
+  assert.deepEqual(await response.json(), { error: "Invalid API key" });
+  assert.equal(queryCalls.length, 1);
+  assert.deepEqual(queryCalls[0].args, { apiKey: "key_bad" });
+  assert.equal(mutationCalled, false);
+});
+
+test("createListingRoute returns 400 when required fields are missing", async () => {
+  const queryCalls = [];
+  let mutationCalled = false;
+  const ctx = {
+    runQuery: async (ref, args) => {
+      queryCalls.push({ ref, args });
+      return { _id: "creator_1" };
+    },
+    runMutation: async () => {
+      mutationCalled = true;
+      return "listing_1";
+    },
+  };
+
+  const request = new Request("https://example.com/api/listings", {
+    method: "POST",
+    headers: {
+      authorization: "Bearer key_123",
+    },
+    body: JSON.stringify({
+      title: "Alpha",
+      description: "Desc",
+      priceUsdc: 0,
+    }),
+  });
+
+  const response = await createListingRoute._handler(ctx, request);
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), {
+    error: "title, description, priceUsdc, and fileStorageId are required",
+  });
+  assert.equal(queryCalls.length, 1);
+  assert.deepEqual(queryCalls[0].args, { apiKey: "key_123" });
+  assert.equal(mutationCalled, false);
+});
+
+test("createListingRoute creates listing for valid API key and payload", async () => {
+  const queryCalls = [];
+  const mutationCalls = [];
+  const ctx = {
+    runQuery: async (ref, args) => {
+      queryCalls.push({ ref, args });
+      return { _id: "creator_1" };
+    },
+    runMutation: async (ref, args) => {
+      mutationCalls.push({ ref, args });
+      return "listing_1";
+    },
+  };
+
+  const request = new Request("https://example.com/api/listings", {
+    method: "POST",
+    headers: {
+      authorization: "Bearer key_123",
+    },
+    body: JSON.stringify({
+      title: " Alpha ",
+      description: " Desc ",
+      priceUsdc: 10,
+      fileStorageId: " file_1 ",
+    }),
+  });
+
+  const response = await createListingRoute._handler(ctx, request);
+
+  assert.equal(response.status, 201);
+  assert.deepEqual(await response.json(), { listingId: "listing_1" });
+  assert.equal(queryCalls.length, 1);
+  assert.deepEqual(queryCalls[0].args, { apiKey: "key_123" });
+  assert.equal(mutationCalls.length, 1);
+  assert.deepEqual(mutationCalls[0].args, {
+    creatorId: "creator_1",
+    title: "Alpha",
+    description: "Desc",
+    priceUsdc: 10,
+    fileStorageId: "file_1",
+  });
 });
