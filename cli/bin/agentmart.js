@@ -4,6 +4,7 @@ import { Command } from "commander";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { setPrivateKey } from "./config.js";
+import { createRecoverAction } from "./recover.js";
 import { createRegisterAction } from "./register.js";
 
 export function createProgram() {
@@ -19,15 +20,14 @@ export function createProgram() {
     .requiredOption("--bio <bio>", "Creator bio")
     .action(createRegisterAction());
 
-  for (const commandName of [
-    "recover",
-    "upload",
-    "search",
-    "list",
-    "buy",
-    "updates",
-    "me",
-  ]) {
+  program
+    .command("recover")
+    .description("Recover your API key with a wallet signature")
+    .requiredOption("--wallet <addr>", "Creator wallet address")
+    .requiredOption("--signature <sig>", "Recovery message signature")
+    .action(createRecoverAction());
+
+  for (const commandName of ["upload", "search", "list", "buy", "updates", "me"]) {
     program
       .command(commandName)
       .description(`${commandName} command`)
