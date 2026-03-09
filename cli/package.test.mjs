@@ -46,3 +46,24 @@ test("cli help lists the supported subcommands", async () => {
   assert.match(binContents, /["']set["']/);
   assert.match(binContents, /["']private-key <key>["']/);
 });
+
+test("cli README includes install instructions and usage examples", async () => {
+  const readmePath = path.join(root, "README.md");
+  const readme = await fs.readFile(readmePath, "utf8");
+
+  assert.match(readme, /npm install -g agentmart/);
+
+  for (const example of [
+    "agentmart register",
+    "agentmart recover",
+    "agentmart upload",
+    "agentmart search",
+    "agentmart list",
+    "agentmart buy",
+    "agentmart me",
+    "agentmart updates",
+    "agentmart config set private-key",
+  ]) {
+    assert.match(readme, new RegExp(example));
+  }
+});
