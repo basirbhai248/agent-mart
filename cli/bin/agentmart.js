@@ -92,10 +92,21 @@ export function createProgram() {
   return program;
 }
 
+import fs from "node:fs";
+
+function resolveRealPath(p) {
+  try { return fs.realpathSync(path.resolve(p)); } catch { return path.resolve(p); }
+}
+
 const isEntrypoint =
   process.argv[1] &&
-  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+  resolveRealPath(process.argv[1]) === resolveRealPath(fileURLToPath(import.meta.url));
 
 if (isEntrypoint) {
-  createProgram().parseAsync(process.argv);
+  createProgram()
+    .parseAsync(process.argv)
+    .catch((error) => {
+      console.error(error.message ?? String(error));
+      process.exitCode = 1;
+    });
 }
