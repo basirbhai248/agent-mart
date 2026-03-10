@@ -18,9 +18,9 @@ const DEFAULT_NETWORK = "eip155:8453" as const;
 const USDC_ASSET = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 
 function createLocalFacilitator() {
-  const pk = process.env.EVM_PRIVATE_KEY?.trim();
+  const pk = (process.env.FACILITATOR_PRIVATE_KEY || process.env.EVM_PRIVATE_KEY)?.trim();
   if (!pk) {
-    throw new Error("EVM_PRIVATE_KEY is required for payment settlement");
+    throw new Error("FACILITATOR_PRIVATE_KEY or EVM_PRIVATE_KEY is required for payment settlement");
   }
 
   const account = privateKeyToAccount(pk as `0x${string}`);
