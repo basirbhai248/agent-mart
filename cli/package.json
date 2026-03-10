@@ -1,7 +1,7 @@
 {
   "name": "agentmart",
-  "version": "1.0.0",
-  "private": true,
+  "version": "1.0.1",
+  "description": "CLI for Agent Mart — discover, buy, and sell agent products with USDC payments on Base",
   "type": "module",
   "bin": {
     "agentmart": "./bin/agentmart.js"
@@ -9,6 +9,20 @@
   "scripts": {
     "test": "node --test *.test.mjs",
     "lint": "node --check bin/agentmart.js"
+  },
+  "keywords": [
+    "agents",
+    "marketplace",
+    "x402",
+    "usdc",
+    "base",
+    "crypto"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/basirbhai248/agent-mart.git",
+    "directory": "cli"
   },
   "dependencies": {
     "@x402/evm": "^2.6.0",

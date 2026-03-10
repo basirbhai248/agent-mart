@@ -11,7 +11,7 @@ function normalizeText(value) {
 
 function normalizePrice(value) {
   if (typeof value === "number" && Number.isFinite(value)) {
-    return value.toFixed(2);
+    return value < 0.01 ? value.toString() : value.toFixed(2);
   }
 
   return normalizeText(value);
