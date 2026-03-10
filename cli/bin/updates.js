@@ -7,15 +7,17 @@ import {
   hasContentChanged,
   recordPurchasedContent,
 } from "./purchases.js";
-import { resolveApiUrl } from "./register.js";
+import { resolveApiUrl, resolvePaymentNetwork } from "./register.js";
 
 async function buildPaymentFetch({
   privateKey,
+  network,
   fetchImpl = globalThis.fetch,
   wrapFetchWithPayment,
   privateKeyToAccount,
   x402ClientCtor,
   exactEvmSchemeCtor,
+  exactEvmSchemeV1Ctor,
 }) {
   if (typeof fetchImpl !== "function") {
     throw new Error("Fetch implementation is unavailable");
@@ -34,8 +36,10 @@ async function buildPaymentFetch({
   const account = toAccount(privateKey);
   const paymentClient = await createX402PaymentClient({
     account,
+    network,
     x402ClientCtor,
     exactEvmSchemeCtor,
+    exactEvmSchemeV1Ctor,
   });
   return wrapPayment(fetchImpl, paymentClient);
 }
@@ -58,7 +62,10 @@ async function downloadListingContent(payload, deps = {}) {
     return payload.content;
   }
 
-  if (typeof payload?.contentUrl !== "string" || payload.contentUrl.length === 0) {
+  if (
+    typeof payload?.contentUrl !== "string" ||
+    payload.contentUrl.length === 0
+  ) {
     throw new Error("Updates response did not include content or contentUrl");
   }
 
@@ -95,11 +102,13 @@ export async function checkPurchasedContentUpdates(options = {}, deps = {}) {
 
   const paidFetch = await buildPaymentFetch({
     privateKey,
+    network: resolvePaymentNetwork({ testnet: options.testnet, env: deps.env }),
     fetchImpl: deps.fetchImpl,
     wrapFetchWithPayment: deps.wrapFetchWithPayment,
     privateKeyToAccount: deps.privateKeyToAccount,
     x402ClientCtor: deps.x402ClientCtor,
     exactEvmSchemeCtor: deps.exactEvmSchemeCtor,
+    exactEvmSchemeV1Ctor: deps.exactEvmSchemeV1Ctor,
   });
   const fsModule = deps.fsModule ?? fs;
   const savePurchase = deps.recordPurchasedContent ?? recordPurchasedContent;
@@ -107,7 +116,10 @@ export async function checkPurchasedContentUpdates(options = {}, deps = {}) {
 
   for (const purchase of purchases) {
     const response = await paidFetch(
-      new URL(`/api/listings/${encodeURIComponent(purchase.listingId)}/content`, apiUrl),
+      new URL(
+        `/api/listings/${encodeURIComponent(purchase.listingId)}/content`,
+        apiUrl,
+      ),
       { method: "GET" },
     );
     if (!response.ok) {
@@ -155,7 +167,9 @@ export function createUpdatesAction(deps = {}) {
     }
 
     if (result.updated.length === 0) {
-      logger.log(`Checked ${result.checked} purchased listing(s). No updates found.`);
+      logger.log(
+        `Checked ${result.checked} purchased listing(s). No updates found.`,
+      );
       return;
     }
 

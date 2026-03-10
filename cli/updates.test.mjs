@@ -7,6 +7,35 @@ import {
   createUpdatesAction,
 } from "./bin/updates.js";
 
+class FakeExactEvmScheme {
+  constructor(account) {
+    this.account = account;
+  }
+}
+
+class FakeExactEvmSchemeV1 {
+  constructor(account) {
+    this.account = account;
+  }
+}
+
+class FakeX402Client {
+  constructor() {
+    this.registerCalls = [];
+    this.registerV1Calls = [];
+  }
+
+  register(network, scheme) {
+    this.registerCalls.push({ network, scheme });
+    return this;
+  }
+
+  registerV1(network, scheme) {
+    this.registerV1Calls.push({ network, scheme });
+    return this;
+  }
+}
+
 function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
@@ -14,6 +43,7 @@ function sha256(value) {
 test("checkPurchasedContentUpdates updates changed purchased content", async () => {
   const writes = [];
   const recorded = [];
+  const paymentClients = [];
 
   const result = await checkPurchasedContentUpdates(
     { apiUrl: "https://agentmart.dev" },
@@ -35,13 +65,17 @@ test("checkPurchasedContentUpdates updates changed purchased content", async () 
       },
       resolvePrivateKey: async () => "0xprivate",
       privateKeyToAccount: () => ({ address: "0xabc" }),
-      wrapFetchWithPayment: () => {
+      wrapFetchWithPayment: (_fetchImpl, paymentClient) => {
+        paymentClients.push(paymentClient);
         return async () =>
           new Response(JSON.stringify({ content: "new content" }), {
             status: 200,
             headers: { "content-type": "application/json" },
           });
       },
+      x402ClientCtor: FakeX402Client,
+      exactEvmSchemeCtor: FakeExactEvmScheme,
+      exactEvmSchemeV1Ctor: FakeExactEvmSchemeV1,
       recordPurchasedContent: async (purchase) => {
         recorded.push(purchase);
       },
@@ -62,6 +96,15 @@ test("checkPurchasedContentUpdates updates changed purchased content", async () 
       content: "new content",
     },
   ]);
+  assert.equal(paymentClients.length, 1);
+  assert.deepEqual(
+    paymentClients[0].registerCalls.map(({ network }) => network),
+    ["base", "eip155:8453", "eip155:*"],
+  );
+  assert.deepEqual(
+    paymentClients[0].registerV1Calls.map(({ network }) => network),
+    ["base"],
+  );
 });
 
 test("checkPurchasedContentUpdates reports no updates when content hash is unchanged", async () => {
@@ -114,7 +157,9 @@ test("checkPurchasedContentUpdates validates private key and API errors", async 
         fsModule: {
           readFile: async () =>
             JSON.stringify({
-              purchases: [{ listingId: "listing_1", outputPath: "listing_1.txt" }],
+              purchases: [
+                { listingId: "listing_1", outputPath: "listing_1.txt" },
+              ],
             }),
         },
         resolvePrivateKey: async () => undefined,
@@ -130,7 +175,9 @@ test("checkPurchasedContentUpdates validates private key and API errors", async 
         fsModule: {
           readFile: async () =>
             JSON.stringify({
-              purchases: [{ listingId: "listing_1", outputPath: "listing_1.txt" }],
+              purchases: [
+                { listingId: "listing_1", outputPath: "listing_1.txt" },
+              ],
             }),
         },
         resolvePrivateKey: async () => "0xprivate",
