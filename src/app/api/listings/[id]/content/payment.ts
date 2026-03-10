@@ -97,7 +97,7 @@ export function buildPaymentRequiredHeader(
         maxTimeoutSeconds: 300,
         extra: {
           name: "USD Coin",
-          version: 2,
+          version: "2",
         },
       },
     ],

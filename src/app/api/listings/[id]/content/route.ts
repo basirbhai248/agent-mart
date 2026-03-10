@@ -104,7 +104,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     asset: USDC_ASSET,
     payTo,
     maxTimeoutSeconds: 300,
-    extra: { name: "USD Coin", version: 2 } as Record<string, unknown>,
+    extra: { name: "USD Coin", version: "2" } as Record<string, unknown>,
   };
 
   const facilitator = getFacilitator();
