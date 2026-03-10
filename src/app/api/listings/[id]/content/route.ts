@@ -79,9 +79,9 @@ export async function GET(request: Request): Promise<NextResponse> {
   try {
     settleResult = await facilitator.settle(paymentPayload, paymentRequirements);
   } catch (error) {
-    console.error("x402 settlement failed:", error);
+    console.error("x402 settlement failed:", error instanceof Error ? error.message : error, JSON.stringify(error));
     return NextResponse.json(
-      { error: "Payment settlement failed" },
+      { error: "Payment settlement failed", detail: error instanceof Error ? error.message : String(error) },
       { status: 402 },
     );
   }
