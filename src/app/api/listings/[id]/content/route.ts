@@ -189,6 +189,38 @@ async function settlePayment(
   return { success: true as const, txHash, payer: authorization.from };
 }
 
+async function fetchListingContent(
+  listingId: string,
+  buyerWallet: string,
+  txHash: string,
+): Promise<NextResponse | null> {
+  const baseUrl = process.env.CONVEX_SITE_URL?.trim();
+  if (!baseUrl) return null;
+
+  try {
+    const url = new URL(
+      `/api/listing?id=${encodeURIComponent(listingId)}`,
+      baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`,
+    );
+    const res = await fetch(url, { method: "GET" });
+    if (!res.ok) return null;
+
+    const listing = (await res.json()) as Record<string, unknown>;
+    const fileStorageId = listing?.fileStorageId;
+    if (typeof fileStorageId !== "string" || !fileStorageId) return null;
+
+    return NextResponse.json({
+      listingId,
+      buyerWallet,
+      hasPurchased: false,
+      txHash,
+      content: fileStorageId,
+    });
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(request: Request): Promise<NextResponse> {
   const listingId = listingIdFromPath(new URL(request.url).pathname);
   if (!listingId) {
@@ -278,6 +310,22 @@ export async function GET(request: Request): Promise<NextResponse> {
       new Request(request.url, { method: request.method, headers }),
       `/api/listing/content?id=${encodeURIComponent(listingId)}`,
     );
+
+    // If Convex returns an error (e.g. invalid storage ID), fall back to
+    // returning the raw listing content directly
+    if (!response.ok) {
+      console.warn(
+        "[settle] Convex proxy returned",
+        response.status,
+        "— falling back to direct content fetch",
+      );
+      const fallback = await fetchListingContent(
+        listingId,
+        result.payer ?? "",
+        result.txHash ?? "",
+      );
+      if (fallback) return fallback;
+    }
 
     return new NextResponse(await response.arrayBuffer(), {
       status: response.status,
