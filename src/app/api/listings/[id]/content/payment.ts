@@ -1,8 +1,8 @@
 const listingContentPath = /^\/api\/listings\/([^/]+)\/content\/?$/i;
 
 export type ListingResponse = { priceUsdc: number };
-const DEFAULT_NETWORK = "eip155:84532";
-const USDC_ASSET = "0x0000000000000000000000000000000000000000";
+const DEFAULT_NETWORK = "eip155:8453"; // Base mainnet
+const USDC_ASSET = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 
 export function listingIdFromPath(pathname: string): string | undefined {
   const match = pathname.match(listingContentPath);

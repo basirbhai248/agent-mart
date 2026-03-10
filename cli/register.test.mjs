@@ -9,6 +9,23 @@ import {
   resolvePaymentNetwork,
 } from "./bin/register.js";
 
+class FakeExactEvmScheme {
+  constructor(account) {
+    this.account = account;
+  }
+}
+
+class FakeX402Client {
+  constructor() {
+    this.registerCalls = [];
+  }
+
+  register(network, scheme) {
+    this.registerCalls.push({ network, scheme });
+    return this;
+  }
+}
+
 test("normalizeRequiredOption trims and validates values", () => {
   assert.equal(normalizeRequiredOption(" value ", "--wallet"), "value");
   assert.throws(() => normalizeRequiredOption("", "--wallet"), /required/);
@@ -69,13 +86,19 @@ test("registerCreator posts /api/register and returns api key", async () => {
           });
         };
       },
+      x402ClientCtor: FakeX402Client,
+      exactEvmSchemeCtor: FakeExactEvmScheme,
     },
   );
 
   assert.equal(result.apiKey, "api_123");
   assert.deepEqual(calls.privateKeyToAccount, ["0xprivate"]);
   assert.equal(calls.wrapFetchWithPayment.length, 1);
-  assert.equal(calls.wrapFetchWithPayment[0].options.network, "base");
+  assert.equal(typeof calls.wrapFetchWithPayment[0].options.register, "function");
+  assert.deepEqual(
+    calls.wrapFetchWithPayment[0].options.registerCalls.map(({ network }) => network),
+    ["base", "eip155:8453", "eip155:*"],
+  );
   assert.equal(calls.paidFetch.length, 1);
   assert.equal(calls.paidFetch[0].url, "https://agentmart.dev/api/register");
   assert.equal(calls.paidFetch[0].init.method, "POST");
@@ -106,10 +129,15 @@ test("registerCreator uses Base Sepolia when --testnet is set", async () => {
             headers: { "content-type": "application/json" },
           });
       },
+      x402ClientCtor: FakeX402Client,
+      exactEvmSchemeCtor: FakeExactEvmScheme,
     },
   );
 
-  assert.equal(calls.wrapFetchWithPayment[0].network, "base-sepolia");
+  assert.deepEqual(
+    calls.wrapFetchWithPayment[0].registerCalls.map(({ network }) => network),
+    ["base-sepolia", "eip155:84532", "eip155:*"],
+  );
 });
 
 test("registerCreator fails when private key is missing", async () => {

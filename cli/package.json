@@ -11,7 +11,8 @@
     "lint": "node --check bin/agentmart.js"
   },
   "dependencies": {
-    "@x402/fetch": "latest",
+    "@x402/evm": "^2.6.0",
+    "@x402/fetch": "^2.6.0",
     "commander": "latest",
     "viem": "latest"
   }

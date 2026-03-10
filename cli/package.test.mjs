@@ -13,8 +13,9 @@ test("cli package metadata matches required contract", async () => {
   assert.equal(pkg.type, "module");
   assert.deepEqual(pkg.bin, { agentmart: "./bin/agentmart.js" });
 
+  assert.equal(pkg.dependencies["@x402/evm"], "^2.6.0");
   assert.equal(pkg.dependencies.commander, "latest");
-  assert.equal(pkg.dependencies["@x402/fetch"], "latest");
+  assert.equal(pkg.dependencies["@x402/fetch"], "^2.6.0");
   assert.equal(pkg.dependencies.viem, "latest");
 });
 

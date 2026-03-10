@@ -72,6 +72,28 @@ async function parseResponseError(response) {
   return text || "Unknown error";
 }
 
+async function parseSearchResponse(response) {
+  if (typeof response.json === "function") {
+    return await response.json();
+  }
+
+  if (!response.body) {
+    throw new Error("Search response must be JSON");
+  }
+
+  const text = await new Response(response.body).text();
+  return JSON.parse(text);
+}
+
+function isNetworkFetchError(error) {
+  if (!(error instanceof TypeError)) {
+    return false;
+  }
+
+  const causeCode = error.cause?.code;
+  return typeof causeCode === "string" && causeCode.length > 0;
+}
+
 export async function searchListings(queryInput, options = {}, deps = {}) {
   const query = normalizeRequiredOption(queryInput, "<query>");
   const apiUrl = resolveApiUrl({ apiUrl: options.apiUrl, env: deps.env });
@@ -84,16 +106,24 @@ export async function searchListings(queryInput, options = {}, deps = {}) {
   const endpoint = new URL("/api/search", apiUrl);
   endpoint.searchParams.set("q", query);
 
-  const response = await fetchImpl(endpoint, {
-    method: "GET",
-  });
+  let response;
+  try {
+    response = await fetchImpl(endpoint, {
+      method: "GET",
+    });
+  } catch (error) {
+    if (isNetworkFetchError(error)) {
+      return [];
+    }
+    throw error;
+  }
 
   if (!response.ok) {
     const errorMessage = await parseResponseError(response);
     throw new Error(`Search failed (${response.status}): ${errorMessage}`);
   }
 
-  const payload = await response.json();
+  const payload = await parseSearchResponse(response);
   if (!Array.isArray(payload)) {
     throw new Error("Search response must be an array");
   }

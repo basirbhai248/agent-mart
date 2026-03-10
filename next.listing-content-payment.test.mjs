@@ -97,6 +97,10 @@ test("buildPaymentRequiredHeader returns a parseable x402 PAYMENT-REQUIRED value
   assert.equal(parsed.accepts[0].network, "eip155:8453");
   assert.equal(parsed.accepts[0].amount, "3750000");
   assert.equal(parsed.accepts[0].payTo, "0xplatform");
+  assert.equal(
+    parsed.accepts[0].asset,
+    "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  );
 });
 
 test("buildPaymentRequiredHttpResponse matches middleware-style 402 response shape", () => {
