@@ -13,6 +13,7 @@ import { createBuyAction } from "./buy.js";
 import { createDeleteAction } from "./delete.js";
 import { createListAction } from "./list.js";
 import { createMeAction } from "./me.js";
+import { createMyListingsAction } from "./my-listings.js";
 import { createRecoverAction } from "./recover.js";
 import { createRegisterAction } from "./register.js";
 import { createSearchAction } from "./search.js";
@@ -89,6 +90,11 @@ export function createProgram() {
     .command("me")
     .description("Show your creator profile from stored API key")
     .action(createMeAction());
+
+  program
+    .command("my-listings")
+    .description("List your own listings")
+    .action(createMyListingsAction());
 
   program
     .command("updates")
