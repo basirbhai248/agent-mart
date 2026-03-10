@@ -20,6 +20,8 @@ export default defineSchema({
     priceUsdc: v.number(),
     fileStorageId: v.string(),
     createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+    isActive: v.optional(v.boolean()),
   }).index("by_creatorId", ["creatorId"]),
 
   purchases: defineTable({

@@ -4,7 +4,8 @@ import { v } from "convex/values";
 export const getListings = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db.query("listings").collect();
+    const listings = await ctx.db.query("listings").collect();
+    return listings.filter((l) => l.isActive !== false);
   },
 });
 
@@ -29,6 +30,7 @@ export const searchListings = query({
 
     const listings = await ctx.db.query("listings").collect();
     return listings.filter((listing) => {
+      if (listing.isActive === false) return false;
       return (
         listing.title.toLowerCase().includes(normalizedQuery) ||
         listing.description.toLowerCase().includes(normalizedQuery)
@@ -66,10 +68,11 @@ export const getCreatorListings = query({
     creatorId: v.id("creators"),
   },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const listings = await ctx.db
       .query("listings")
       .withIndex("by_creatorId", (q) => q.eq("creatorId", args.creatorId))
       .collect();
+    return listings.filter((l) => l.isActive !== false);
   },
 });
 

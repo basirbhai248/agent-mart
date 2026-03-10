@@ -134,6 +134,10 @@ export const createListingRoute = httpAction(async (ctx, request) => {
     );
   }
 
+  if (new TextEncoder().encode(fileStorageId).byteLength > 500 * 1024) {
+    return json({ error: "Content exceeds 500KB limit" }, 400);
+  }
+
   const listingId = await ctx.runMutation(api.mutations.createListing, {
     creatorId: creator._id,
     title,
@@ -143,6 +147,108 @@ export const createListingRoute = httpAction(async (ctx, request) => {
   });
 
   return json({ listingId }, 201);
+});
+
+export const updateListingRoute = httpAction(async (ctx, request) => {
+  if (request.method !== "PUT") {
+    return json({ error: "Method not allowed" }, 405);
+  }
+
+  const apiKey = parseBearerToken(request.headers.get("authorization"));
+  if (!apiKey) {
+    return json({ error: "API key required" }, 401);
+  }
+
+  let payload;
+  try {
+    payload = await request.json();
+  } catch {
+    return json({ error: "Invalid JSON body" }, 400);
+  }
+
+  const listingId = asNonEmptyString(payload?.listingId);
+  if (!listingId) {
+    return json({ error: "listingId is required" }, 400);
+  }
+
+  const title = asOptionalNonEmptyString(payload?.title);
+  const description = asOptionalNonEmptyString(payload?.description);
+  const fileStorageId = asOptionalNonEmptyString(payload?.fileStorageId);
+  const priceUsdc =
+    typeof payload?.priceUsdc === "number" &&
+    Number.isFinite(payload.priceUsdc) &&
+    payload.priceUsdc > 0
+      ? payload.priceUsdc
+      : undefined;
+
+  if (!title && !description && !fileStorageId && priceUsdc === undefined) {
+    return json({ error: "At least one field to update is required" }, 400);
+  }
+
+  if (
+    fileStorageId &&
+    new TextEncoder().encode(fileStorageId).byteLength > 500 * 1024
+  ) {
+    return json({ error: "Content exceeds 500KB limit" }, 400);
+  }
+
+  try {
+    await ctx.runMutation(api.mutations.updateListing, {
+      listingId: listingId as Id<"listings">,
+      apiKey,
+      title,
+      description,
+      priceUsdc,
+      fileStorageId,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Update failed";
+    const status = message.includes("not found")
+      ? 404
+      : message.includes("Not authorized")
+        ? 403
+        : 400;
+    return json({ error: message }, status);
+  }
+
+  return json({ ok: true, listingId }, 200);
+});
+
+export const deleteListingRoute = httpAction(async (ctx, request) => {
+  if (request.method !== "DELETE") {
+    return json({ error: "Method not allowed" }, 405);
+  }
+
+  const apiKey = parseBearerToken(request.headers.get("authorization"));
+  if (!apiKey) {
+    return json({ error: "API key required" }, 401);
+  }
+
+  const listingId = asNonEmptyString(
+    new URL(request.url).searchParams.get("id"),
+  );
+  if (!listingId) {
+    return json({ error: "Listing id is required" }, 400);
+  }
+
+  try {
+    await ctx.runMutation(api.mutations.deleteListing, {
+      listingId: listingId as Id<"listings">,
+      apiKey,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Delete failed";
+    const status = message.includes("not found")
+      ? 404
+      : message.includes("Not authorized")
+        ? 403
+        : 400;
+    return json({ error: message }, status);
+  }
+
+  return json({ ok: true, listingId }, 200);
 });
 
 export const listListingsRoute = httpAction(async (ctx, request) => {
@@ -388,6 +494,18 @@ http.route({
   path: "/api/listings",
   method: "GET",
   handler: listListingsRoute,
+});
+
+http.route({
+  path: "/api/listings",
+  method: "PUT",
+  handler: updateListingRoute,
+});
+
+http.route({
+  path: "/api/listings",
+  method: "DELETE",
+  handler: deleteListingRoute,
 });
 
 http.route({

@@ -10,7 +10,7 @@ import {
 } from "./register.js";
 
 function defaultOutputPath(listingId) {
-  return `${listingId.replace(/[^a-zA-Z0-9._-]/g, "_")}.txt`;
+  return `${listingId.replace(/[^a-zA-Z0-9._-]/g, "_")}.md`;
 }
 
 async function buildPaymentFetch({

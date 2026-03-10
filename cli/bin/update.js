@@ -1,5 +1,4 @@
 import fs from "node:fs/promises";
-import path from "node:path";
 
 import { normalizeRequiredOption, resolveApiUrl } from "./register.js";
 
@@ -18,6 +17,10 @@ function resolveApiKey(options, env = process.env) {
 }
 
 function parsePrice(value) {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
   if (typeof value === "number" && Number.isFinite(value) && value > 0) {
     return value;
   }
@@ -47,29 +50,38 @@ async function parseResponseError(response) {
   return text || "Unknown error";
 }
 
-export async function uploadListing(file, options, deps = {}) {
-  const filePath = normalizeRequiredOption(file, "<file>");
-  const title = normalizeRequiredOption(options.title, "--title");
-  const description = normalizeRequiredOption(options.description, "--description");
-  const priceUsdc = parsePrice(options.price);
-  if (priceUsdc === undefined) {
-    throw new Error("--price must be a positive number");
-  }
-
-  if (!filePath.endsWith(".md")) {
-    throw new Error("Only .md (markdown) files are supported");
-  }
+export async function updateListing(listingIdInput, options = {}, deps = {}) {
+  const listingId = normalizeRequiredOption(listingIdInput, "<listing-id>");
 
   const apiKey = resolveApiKey(options, deps.env);
   if (!apiKey) {
     throw new Error("Missing API key. Set AGENTMART_API_KEY or pass --api-key.");
   }
 
-  const fsModule = deps.fsModule ?? fs;
-  const rawFile = await fsModule.readFile(filePath, "utf8");
-  const fileStorageId = rawFile.trim();
-  if (fileStorageId.length === 0) {
-    throw new Error("File content cannot be empty");
+  const body = { listingId };
+
+  if (options.title) body.title = options.title.trim();
+  if (options.description) body.description = options.description.trim();
+
+  const priceUsdc = parsePrice(options.price);
+  if (priceUsdc !== undefined) body.priceUsdc = priceUsdc;
+
+  if (options.file) {
+    const filePath = options.file.trim();
+    if (!filePath.endsWith(".md")) {
+      throw new Error("Only .md (markdown) files are supported");
+    }
+    const fsModule = deps.fsModule ?? fs;
+    const rawFile = await fsModule.readFile(filePath, "utf8");
+    const content = rawFile.trim();
+    if (content.length === 0) {
+      throw new Error("File content cannot be empty");
+    }
+    body.fileStorageId = content;
+  }
+
+  if (!body.title && !body.description && !body.priceUsdc && !body.fileStorageId) {
+    throw new Error("At least one field to update is required (--title, --description, --price, --file)");
   }
 
   const apiUrl = resolveApiUrl({ apiUrl: options.apiUrl, env: deps.env });
@@ -79,37 +91,26 @@ export async function uploadListing(file, options, deps = {}) {
   }
 
   const response = await fetchImpl(new URL("/api/listings", apiUrl), {
-    method: "POST",
+    method: "PUT",
     headers: {
       authorization: `Bearer ${apiKey}`,
       "content-type": "application/json",
     },
-    body: JSON.stringify({
-      title,
-      description,
-      priceUsdc,
-      fileStorageId,
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
     const errorMessage = await parseResponseError(response);
-    throw new Error(`Upload failed (${response.status}): ${errorMessage}`);
-  }
-
-  const payload = await response.json();
-  const listingId = payload?.listingId;
-  if (typeof listingId !== "string" || listingId.length === 0) {
-    throw new Error("Upload response did not include a listing id");
+    throw new Error(`Update failed (${response.status}): ${errorMessage}`);
   }
 
   return { listingId };
 }
 
-export function createUploadAction(deps = {}) {
+export function createUpdateAction(deps = {}) {
   const logger = deps.logger ?? console;
-  return async (file, options) => {
-    const { listingId } = await uploadListing(file, options, deps);
-    logger.log(`Listing created: ${listingId}`);
+  return async (listingId, options) => {
+    const result = await updateListing(listingId, options, deps);
+    logger.log(`Listing updated: ${result.listingId}`);
   };
 }

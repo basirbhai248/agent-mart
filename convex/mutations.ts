@@ -76,3 +76,68 @@ export const recordPurchase = mutation({
     });
   },
 });
+
+export const updateListing = mutation({
+  args: {
+    listingId: v.id("listings"),
+    apiKey: v.string(),
+    title: v.optional(v.string()),
+    description: v.optional(v.string()),
+    priceUsdc: v.optional(v.number()),
+    fileStorageId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const creator = await ctx.db
+      .query("creators")
+      .withIndex("by_apiKey", (q) => q.eq("apiKey", args.apiKey))
+      .unique();
+    if (!creator) {
+      throw new Error("Invalid API key");
+    }
+
+    const listing = await ctx.db.get(args.listingId);
+    if (!listing) {
+      throw new Error("Listing not found");
+    }
+    if (listing.creatorId !== creator._id) {
+      throw new Error("Not authorized to update this listing");
+    }
+
+    const updates: Record<string, unknown> = { updatedAt: Date.now() };
+    if (args.title !== undefined) updates.title = args.title;
+    if (args.description !== undefined) updates.description = args.description;
+    if (args.priceUsdc !== undefined) updates.priceUsdc = args.priceUsdc;
+    if (args.fileStorageId !== undefined)
+      updates.fileStorageId = args.fileStorageId;
+
+    await ctx.db.patch(args.listingId, updates);
+    return args.listingId;
+  },
+});
+
+export const deleteListing = mutation({
+  args: {
+    listingId: v.id("listings"),
+    apiKey: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const creator = await ctx.db
+      .query("creators")
+      .withIndex("by_apiKey", (q) => q.eq("apiKey", args.apiKey))
+      .unique();
+    if (!creator) {
+      throw new Error("Invalid API key");
+    }
+
+    const listing = await ctx.db.get(args.listingId);
+    if (!listing) {
+      throw new Error("Listing not found");
+    }
+    if (listing.creatorId !== creator._id) {
+      throw new Error("Not authorized to delete this listing");
+    }
+
+    await ctx.db.patch(args.listingId, { isActive: false });
+    return args.listingId;
+  },
+});

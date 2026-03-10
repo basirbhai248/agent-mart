@@ -10,11 +10,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { setPrivateKey } from "./config.js";
 import { createBuyAction } from "./buy.js";
+import { createDeleteAction } from "./delete.js";
 import { createListAction } from "./list.js";
 import { createMeAction } from "./me.js";
 import { createRecoverAction } from "./recover.js";
 import { createRegisterAction } from "./register.js";
 import { createSearchAction } from "./search.js";
+import { createUpdateAction } from "./update.js";
 import { createUpdatesAction } from "./updates.js";
 import { createUploadAction } from "./upload.js";
 
@@ -42,12 +44,28 @@ export function createProgram() {
 
   program
     .command("upload <file>")
-    .description("Create a listing from a file")
+    .description("Create a listing from a markdown file")
     .requiredOption("--title <title>", "Listing title")
     .requiredOption("--description <desc>", "Listing description")
     .requiredOption("--price <usdc>", "Listing price in USDC")
     .option("--api-key <key>", "Creator API key (or set AGENTMART_API_KEY)")
     .action(createUploadAction());
+
+  program
+    .command("update <listing-id>")
+    .description("Update a listing")
+    .option("--title <title>", "New title")
+    .option("--description <desc>", "New description")
+    .option("--price <usdc>", "New price in USDC")
+    .option("--file <path>", "New content file (.md)")
+    .option("--api-key <key>", "Creator API key (or set AGENTMART_API_KEY)")
+    .action(createUpdateAction());
+
+  program
+    .command("delete <listing-id>")
+    .description("Delete a listing (soft delete)")
+    .option("--api-key <key>", "Creator API key (or set AGENTMART_API_KEY)")
+    .action(createDeleteAction());
 
   program
     .command("search <query>")
