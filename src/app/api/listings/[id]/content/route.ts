@@ -30,6 +30,7 @@ function createLocalFacilitator() {
     transport: http(),
   }).extend(publicActions);
 
+  console.log("[x402] Facilitator address:", account.address);
   const signer = toFacilitatorEvmSigner(client as any);
   const facilitator = new x402Facilitator();
   facilitator.register(DEFAULT_NETWORK, new ExactEvmScheme(signer));
@@ -112,19 +113,23 @@ export async function GET(request: Request): Promise<NextResponse> {
   try {
     settleResult = await facilitator.settle(paymentPayload, paymentRequirements);
   } catch (error) {
-    console.error("x402 settlement failed:", error);
+    const errMsg = error instanceof Error ? error.message : String(error);
+    const errStack = error instanceof Error ? error.stack : undefined;
+    console.error("[x402] settlement exception:", errMsg, errStack);
     return NextResponse.json(
-      { error: "Payment settlement failed", detail: error instanceof Error ? error.message : String(error) },
+      { error: "Payment settlement failed", detail: errMsg },
       { status: 402 },
     );
   }
 
   if (!settleResult.success) {
+    console.error("[x402] settlement rejected:", settleResult.errorReason, settleResult.errorMessage, JSON.stringify(settleResult));
     return NextResponse.json(
       {
         error: "Payment settlement rejected",
         reason: settleResult.errorReason,
         message: settleResult.errorMessage,
+        detail: JSON.stringify(settleResult),
       },
       { status: 402 },
     );
