@@ -486,9 +486,9 @@ function paymentRequiredResponse(url: string, priceUsdc: number): Response {
   const amount = Math.round(priceUsdc * 1_000_000).toString();
   const paymentRequirement = {
     scheme: "exact",
-    network: "eip155:84532",
+    network: "eip155:8453",
     amount,
-    asset: "0x0000000000000000000000000000000000000000",
+    asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
     payTo,
     maxTimeoutSeconds: 300,
     extra: {

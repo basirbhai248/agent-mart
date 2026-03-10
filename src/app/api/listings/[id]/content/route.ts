@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { HTTPFacilitatorClient } from "@x402/core/server";
 
 import { proxyToConvex } from "../../../_lib/proxy";
 import {
@@ -8,17 +9,18 @@ import {
   listingIdFromPath,
 } from "./payment";
 
+const DEFAULT_NETWORK = "eip155:8453" as const;
+const USDC_ASSET = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+const facilitator = new HTTPFacilitatorClient();
+
 export async function GET(request: Request): Promise<NextResponse> {
   const listingId = listingIdFromPath(new URL(request.url).pathname);
   if (!listingId) {
     return NextResponse.json({ error: "Listing id is required" }, { status: 400 });
   }
 
-  const paymentSignature = request.headers.get("payment-signature");
   const xPayment = request.headers.get("x-payment");
-  const hasPayment = Boolean(paymentSignature || xPayment);
-
-  if (!hasPayment) {
+  if (!xPayment) {
     const listing = await fetchListing(listingId, request.url);
     if (!listing) {
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
@@ -34,9 +36,63 @@ export async function GET(request: Request): Promise<NextResponse> {
     return new NextResponse(response.body, response);
   }
 
-  // If payment headers present, proxy to Convex
+  // Payment header present — verify and settle via x402 facilitator
+  const listing = await fetchListing(listingId, request.url);
+  if (!listing) {
+    return NextResponse.json({ error: "Listing not found" }, { status: 404 });
+  }
+
+  let paymentPayload;
+  try {
+    paymentPayload = JSON.parse(
+      Buffer.from(xPayment, "base64").toString("utf8"),
+    );
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid x-payment header" },
+      { status: 400 },
+    );
+  }
+
+  const payTo = getPlatformWalletAddress();
+  const amount = Math.round(listing.priceUsdc * 1_000_000).toString();
+  const paymentRequirements = {
+    scheme: "exact",
+    network: DEFAULT_NETWORK,
+    amount,
+    asset: USDC_ASSET,
+    payTo,
+    maxTimeoutSeconds: 300,
+    extra: { name: "USDC", version: "2" } as Record<string, unknown>,
+  };
+
+  let settleResult;
+  try {
+    settleResult = await facilitator.settle(paymentPayload, paymentRequirements);
+  } catch (error) {
+    console.error("x402 settlement failed:", error);
+    return NextResponse.json(
+      { error: "Payment settlement failed" },
+      { status: 402 },
+    );
+  }
+
+  if (!settleResult.success) {
+    return NextResponse.json(
+      {
+        error: "Payment settlement rejected",
+        reason: settleResult.errorReason,
+        message: settleResult.errorMessage,
+      },
+      { status: 402 },
+    );
+  }
+
+  // Settlement succeeded — forward buyer wallet and tx hash to Convex
   const headers = new Headers(request.headers);
-  headers.set("x-x402-verified", "1");
+  headers.delete("x-x402-verified");
+  headers.set("x-buyer-wallet", settleResult.payer ?? "");
+  headers.set("x-payment-tx", settleResult.transaction ?? "");
 
   const response = await proxyToConvex(
     new Request(request.url, { method: request.method, headers }),

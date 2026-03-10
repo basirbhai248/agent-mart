@@ -5,3 +5,4 @@ out/
 coverage/
 .vercel
 .env.production
+.env*.local
