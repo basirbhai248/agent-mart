@@ -139,8 +139,11 @@ const listingId = process.argv[2];
 if (payload?.listingId !== listingId) {
   process.exit(1);
 }
+if (typeof payload?.content !== "string" && typeof payload?.contentUrl !== "string") {
+  process.exit(1);
+}
 ' "$buy_body" "$listing_id"; then
-  echo "Buy response did not include expected listing id: $buy_body" >&2
+  echo "Buy response did not include expected listing id and content payload: $buy_body" >&2
   exit 1
 fi
 echo "$buy_body" > "$output_file"

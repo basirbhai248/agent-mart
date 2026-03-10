@@ -1445,6 +1445,7 @@ test("getListingContentRoute returns content when trusted x402 header is present
     hasPurchased: false,
     fileStorageId: "file_1",
     contentUrl: "https://cdn.example/file_1",
+    content: null,
   });
 });
 
@@ -1494,6 +1495,7 @@ test("getListingContentRoute returns content without payment when already purcha
     hasPurchased: true,
     fileStorageId: "file_1",
     contentUrl: "https://cdn.example/file_1",
+    content: null,
   });
   assert.equal(queryCalls.length, 2);
   assertFunctionRef(queryCalls[0].ref, api.queries.getListing);
@@ -1526,6 +1528,10 @@ test("getListingContentRoute records purchase and returns content for paid reque
       mutationCalls.push({ ref, args });
       return "purchase_1";
     },
+    storage: {
+      getUrl: async () => null,
+      get: async () => new Blob(["paid content"]),
+    },
   };
 
   const request = new Request(
@@ -1548,6 +1554,7 @@ test("getListingContentRoute records purchase and returns content for paid reque
     hasPurchased: false,
     fileStorageId: "file_1",
     contentUrl: null,
+    content: "paid content",
   });
   assert.equal(queryCalls.length, 2);
   assertFunctionRef(queryCalls[0].ref, api.queries.getListing);

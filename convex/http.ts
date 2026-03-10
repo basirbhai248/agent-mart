@@ -767,7 +767,12 @@ function listingIdFromQuery(
 }
 
 async function listingContentJson(
-  ctx: { storage?: { getUrl?: (id: string) => Promise<string | null> } },
+  ctx: {
+    storage?: {
+      getUrl?: (id: string) => Promise<string | null>;
+      get?: (id: string) => Promise<Blob | null>;
+    };
+  },
   listing: { _id: string; fileStorageId: string },
   buyerWallet: string,
   hasPurchased: boolean,
@@ -775,6 +780,10 @@ async function listingContentJson(
   const contentUrl =
     typeof ctx.storage?.getUrl === "function"
       ? await ctx.storage.getUrl(listing.fileStorageId)
+      : null;
+  const content =
+    !contentUrl && typeof ctx.storage?.get === "function"
+      ? await readStoredContent(ctx.storage.get, listing.fileStorageId)
       : null;
 
   return json(
@@ -784,7 +793,20 @@ async function listingContentJson(
       hasPurchased,
       fileStorageId: listing.fileStorageId,
       contentUrl,
+      content,
     },
     200,
   );
+}
+
+async function readStoredContent(
+  get: (id: string) => Promise<Blob | null>,
+  fileStorageId: string,
+): Promise<string | null> {
+  const storedFile = await get(fileStorageId);
+  if (!storedFile) {
+    return null;
+  }
+
+  return await storedFile.text();
 }
