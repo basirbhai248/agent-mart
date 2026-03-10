@@ -13,14 +13,23 @@ const DEFAULT_NETWORK = "eip155:8453" as const;
 const USDC_ASSET = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 const facilitator = new HTTPFacilitatorClient();
 
+function getPaymentHeader(request: Request): string | null {
+  // x402 v2 uses PAYMENT-SIGNATURE, v1 uses X-PAYMENT
+  return (
+    request.headers.get("payment-signature") ||
+    request.headers.get("x-payment") ||
+    null
+  );
+}
+
 export async function GET(request: Request): Promise<NextResponse> {
   const listingId = listingIdFromPath(new URL(request.url).pathname);
   if (!listingId) {
     return NextResponse.json({ error: "Listing id is required" }, { status: 400 });
   }
 
-  const xPayment = request.headers.get("x-payment");
-  if (!xPayment) {
+  const paymentHeader = getPaymentHeader(request);
+  if (!paymentHeader) {
     const listing = await fetchListing(listingId, request.url);
     if (!listing) {
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
@@ -45,11 +54,11 @@ export async function GET(request: Request): Promise<NextResponse> {
   let paymentPayload;
   try {
     paymentPayload = JSON.parse(
-      Buffer.from(xPayment, "base64").toString("utf8"),
+      Buffer.from(paymentHeader, "base64").toString("utf8"),
     );
   } catch {
     return NextResponse.json(
-      { error: "Invalid x-payment header" },
+      { error: "Invalid payment header" },
       { status: 400 },
     );
   }
@@ -63,7 +72,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     asset: USDC_ASSET,
     payTo,
     maxTimeoutSeconds: 300,
-    extra: { name: "USDC", version: "2" } as Record<string, unknown>,
+    extra: { name: "USDC", version: 2 } as Record<string, unknown>,
   };
 
   let settleResult;
