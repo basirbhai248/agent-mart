@@ -777,14 +777,20 @@ async function listingContentJson(
   buyerWallet: string,
   hasPurchased: boolean,
 ): Promise<Response> {
-  const contentUrl =
-    typeof ctx.storage?.getUrl === "function"
-      ? await ctx.storage.getUrl(listing.fileStorageId)
-      : null;
-  const content =
-    !contentUrl && typeof ctx.storage?.get === "function"
-      ? await readStoredContent(ctx.storage.get, listing.fileStorageId)
-      : null;
+  let contentUrl: string | null = null;
+  let content: string | null = null;
+  try {
+    contentUrl =
+      typeof ctx.storage?.getUrl === "function"
+        ? await ctx.storage.getUrl(listing.fileStorageId)
+        : null;
+    if (!contentUrl && typeof ctx.storage?.get === "function") {
+      content = await readStoredContent(ctx.storage.get, listing.fileStorageId);
+    }
+  } catch {
+    // fileStorageId may contain raw content instead of a valid storage ID
+    content = listing.fileStorageId;
+  }
 
   return json(
     {
