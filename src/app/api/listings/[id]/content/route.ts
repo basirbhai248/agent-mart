@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { HTTPFacilitatorClient } from "@x402/core/server";
+import { createWalletClient, createPublicClient, http, publicActions } from "viem";
+import { base } from "viem/chains";
+import { privateKeyToAccount } from "viem/accounts";
+import { x402Facilitator } from "@x402/core/facilitator";
+import { ExactEvmScheme } from "@x402/evm/exact/facilitator";
+import { toFacilitatorEvmSigner } from "@x402/evm";
 
 import { proxyToConvex } from "../../../_lib/proxy";
 import {
@@ -11,10 +16,36 @@ import {
 
 const DEFAULT_NETWORK = "eip155:8453" as const;
 const USDC_ASSET = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-const facilitator = new HTTPFacilitatorClient();
+
+function createLocalFacilitator() {
+  const pk = process.env.EVM_PRIVATE_KEY?.trim();
+  if (!pk) {
+    throw new Error("EVM_PRIVATE_KEY is required for payment settlement");
+  }
+
+  const account = privateKeyToAccount(pk as `0x${string}`);
+  const client = createWalletClient({
+    account,
+    chain: base,
+    transport: http(),
+  }).extend(publicActions);
+
+  const signer = toFacilitatorEvmSigner(client as any);
+  const facilitator = new x402Facilitator();
+  facilitator.register(DEFAULT_NETWORK, new ExactEvmScheme(signer));
+
+  return facilitator;
+}
+
+let _facilitator: x402Facilitator | null = null;
+function getFacilitator(): x402Facilitator {
+  if (!_facilitator) {
+    _facilitator = createLocalFacilitator();
+  }
+  return _facilitator;
+}
 
 function getPaymentHeader(request: Request): string | null {
-  // x402 v2 uses PAYMENT-SIGNATURE, v1 uses X-PAYMENT
   return (
     request.headers.get("payment-signature") ||
     request.headers.get("x-payment") ||
@@ -45,7 +76,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     return new NextResponse(response.body, response);
   }
 
-  // Payment header present — verify and settle via x402 facilitator
+  // Payment header present — verify and settle via local facilitator
   const listing = await fetchListing(listingId, request.url);
   if (!listing) {
     return NextResponse.json({ error: "Listing not found" }, { status: 404 });
@@ -75,11 +106,13 @@ export async function GET(request: Request): Promise<NextResponse> {
     extra: { name: "USDC", version: 2 } as Record<string, unknown>,
   };
 
+  const facilitator = getFacilitator();
+
   let settleResult;
   try {
     settleResult = await facilitator.settle(paymentPayload, paymentRequirements);
   } catch (error) {
-    console.error("x402 settlement failed:", error instanceof Error ? error.message : error, JSON.stringify(error));
+    console.error("x402 settlement failed:", error);
     return NextResponse.json(
       { error: "Payment settlement failed", detail: error instanceof Error ? error.message : String(error) },
       { status: 402 },
