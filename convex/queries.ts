@@ -5,7 +5,20 @@ export const getListings = query({
   args: {},
   handler: async (ctx) => {
     const listings = await ctx.db.query("listings").collect();
-    return listings.filter((l) => l.isActive !== false);
+    const active = listings.filter((l) => l.isActive !== false);
+
+    const creatorIds = [...new Set(active.map((l) => l.creatorId))];
+    const creators = await Promise.all(creatorIds.map((id) => ctx.db.get(id)));
+    const creatorMap = new Map(
+      creators
+        .filter(Boolean)
+        .map((c) => [c!._id, c!.displayName]),
+    );
+
+    return active.map((l) => ({
+      ...l,
+      creatorName: creatorMap.get(l.creatorId) ?? "Unknown",
+    }));
   },
 });
 
@@ -14,7 +27,14 @@ export const getListing = query({
     listingId: v.id("listings"),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.listingId);
+    const listing = await ctx.db.get(args.listingId);
+    if (!listing) return null;
+
+    const creator = await ctx.db.get(listing.creatorId);
+    return {
+      ...listing,
+      creatorName: creator?.displayName ?? "Unknown",
+    };
   },
 });
 
@@ -29,13 +49,26 @@ export const searchListings = query({
     }
 
     const listings = await ctx.db.query("listings").collect();
-    return listings.filter((listing) => {
+    const matches = listings.filter((listing) => {
       if (listing.isActive === false) return false;
       return (
         listing.title.toLowerCase().includes(normalizedQuery) ||
         listing.description.toLowerCase().includes(normalizedQuery)
       );
     });
+
+    const creatorIds = [...new Set(matches.map((l) => l.creatorId))];
+    const creators = await Promise.all(creatorIds.map((id) => ctx.db.get(id)));
+    const creatorMap = new Map(
+      creators
+        .filter(Boolean)
+        .map((c) => [c!._id, c!.displayName]),
+    );
+
+    return matches.map((l) => ({
+      ...l,
+      creatorName: creatorMap.get(l.creatorId) ?? "Unknown",
+    }));
   },
 });
 
