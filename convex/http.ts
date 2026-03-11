@@ -460,6 +460,42 @@ export const getListingContentRoute = httpAction(async (ctx, request) => {
   return paymentRequiredResponse(request.url, listing.priceUsdc);
 });
 
+
+export const recordPayoutRoute = httpAction(async (ctx, request) => {
+  if (request.method !== "POST") {
+    return json({ error: "Method not allowed" }, 405);
+  }
+
+  let payload;
+  try {
+    payload = await request.json();
+  } catch {
+    return json({ error: "Invalid JSON body" }, 400);
+  }
+
+  const creatorWallet = asNonEmptyString(payload?.creatorWallet);
+  if (!creatorWallet) {
+    return json({ error: "creatorWallet is required" }, 400);
+  }
+
+  const creator = await ctx.runQuery(api.queries.getCreatorByWallet, {
+    wallet: creatorWallet,
+  });
+
+  await ctx.runMutation(api.mutations.recordPayout, {
+    creatorId: creator?._id,
+    creatorWallet,
+    grossAmount: typeof payload?.grossAmount === "number" ? payload.grossAmount : 0,
+    creatorAmount: typeof payload?.creatorAmount === "number" ? payload.creatorAmount : 0,
+    platformAmount: typeof payload?.platformAmount === "number" ? payload.platformAmount : 0,
+    txHash: asNonEmptyString(payload?.txHash),
+    status: asNonEmptyString(payload?.status) ?? "unknown",
+    error: asOptionalNonEmptyString(payload?.error),
+  });
+
+  return json({ ok: true }, 201);
+});
+
 http.route({
   path: "/",
   method: "GET",
@@ -542,6 +578,12 @@ http.route({
   path: "/api/listing/content",
   method: "GET",
   handler: getListingContentRoute,
+});
+
+http.route({
+  path: "/api/payout",
+  method: "POST",
+  handler: recordPayoutRoute,
 });
 
 export default http;

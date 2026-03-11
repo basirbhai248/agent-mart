@@ -34,6 +34,7 @@ export const getListing = query({
     return {
       ...listing,
       creatorName: creator?.displayName ?? "Unknown",
+      creatorWallet: creator?.wallet ?? null,
     };
   },
 });

@@ -36,6 +36,7 @@ const EIP3009_TYPES = {
 const USDC_ABI = parseAbi([
   "function transferWithAuthorization(address from, address to, uint256 value, uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s)",
   "function balanceOf(address) view returns (uint256)",
+  "function transfer(address to, uint256 amount) returns (bool)",
 ]);
 
 function getFacilitatorClient() {
@@ -189,6 +190,70 @@ async function settlePayment(
   return { success: true as const, txHash, payer: authorization.from };
 }
 
+const CREATOR_SHARE_BPS = 9000; // 90%
+const BPS_DENOMINATOR = 10000;
+
+async function distributeRevenue(
+  creatorWallet: string,
+  grossAmountMicroUsdc: bigint,
+): Promise<{ success: boolean; txHash?: string; creatorAmount: bigint; platformAmount: bigint; error?: string }> {
+  const creatorAmount = (grossAmountMicroUsdc * BigInt(CREATOR_SHARE_BPS)) / BigInt(BPS_DENOMINATOR);
+  const platformAmount = grossAmountMicroUsdc - creatorAmount;
+
+  if (creatorAmount === BigInt(0)) {
+    return { success: true, creatorAmount, platformAmount };
+  }
+
+  try {
+    const client = getClient();
+    const txHash = await client.writeContract({
+      address: getAddress(USDC_ASSET),
+      abi: USDC_ABI,
+      functionName: "transfer",
+      args: [getAddress(creatorWallet), creatorAmount],
+    });
+
+    console.log("[payout] Sending", creatorAmount.toString(), "micro-USDC to", creatorWallet, "tx:", txHash);
+    const receipt = await client.waitForTransactionReceipt({ hash: txHash });
+    if (receipt.status !== "success") {
+      return { success: false, txHash, creatorAmount, platformAmount, error: "Payout tx reverted" };
+    }
+
+    return { success: true, txHash, creatorAmount, platformAmount };
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.error("[payout] Failed:", errMsg);
+    return { success: false, creatorAmount, platformAmount, error: errMsg };
+  }
+}
+
+async function recordPayoutToConvex(params: {
+  listingId: string;
+  creatorWallet: string;
+  grossAmount: number;
+  creatorAmount: number;
+  platformAmount: number;
+  txHash?: string;
+  status: string;
+  error?: string;
+}): Promise<void> {
+  const baseUrl = process.env.CONVEX_SITE_URL?.trim();
+  if (!baseUrl) return;
+
+  try {
+    await fetch(
+      new URL("/api/payout", baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`),
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(params),
+      },
+    );
+  } catch (e) {
+    console.error("[payout] Failed to record payout:", e);
+  }
+}
+
 async function fetchListingContent(
   listingId: string,
   buyerWallet: string,
@@ -299,6 +364,29 @@ export async function GET(request: Request): Promise<NextResponse> {
     }
 
     console.log("[settle] Success! TX:", result.txHash);
+
+    // Distribute 90% to creator, 10% stays in platform wallet
+    if (listing.creatorWallet) {
+      const grossMicroUsdc = BigInt(amount);
+      const payout = await distributeRevenue(listing.creatorWallet, grossMicroUsdc);
+      console.log(
+        "[payout] creator:", payout.creatorAmount.toString(),
+        "platform:", payout.platformAmount.toString(),
+        "success:", payout.success,
+      );
+
+      // Record payout (fire-and-forget)
+      recordPayoutToConvex({
+        listingId,
+        creatorWallet: listing.creatorWallet,
+        grossAmount: Number(grossMicroUsdc),
+        creatorAmount: Number(payout.creatorAmount),
+        platformAmount: Number(payout.platformAmount),
+        txHash: payout.txHash,
+        status: payout.success ? "completed" : "failed",
+        error: payout.error,
+      });
+    }
 
     // Forward buyer wallet and tx hash to Convex
     const headers = new Headers(request.headers);

@@ -33,4 +33,20 @@ export default defineSchema({
   })
     .index("by_listingId", ["listingId"])
     .index("by_buyerWallet", ["buyerWallet"]),
+  payouts: defineTable({
+    purchaseId: v.optional(v.id("purchases")),
+    listingId: v.optional(v.id("listings")),
+    creatorId: v.optional(v.id("creators")),
+    creatorWallet: v.string(),
+    grossAmount: v.number(),
+    creatorAmount: v.number(),
+    platformAmount: v.number(),
+    txHash: v.optional(v.string()),
+    status: v.string(),
+    createdAt: v.number(),
+    completedAt: v.optional(v.number()),
+    error: v.optional(v.string()),
+  })
+    .index("by_creatorId", ["creatorId"])
+    .index("by_status", ["status"]),
 });

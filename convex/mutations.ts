@@ -142,3 +142,47 @@ export const deleteListing = mutation({
   },
 });
 
+
+export const recordPayout = mutation({
+  args: {
+    purchaseId: v.optional(v.id("purchases")),
+    listingId: v.optional(v.id("listings")),
+    creatorId: v.optional(v.id("creators")),
+    creatorWallet: v.string(),
+    grossAmount: v.number(),
+    creatorAmount: v.number(),
+    platformAmount: v.number(),
+    txHash: v.optional(v.string()),
+    status: v.string(),
+    error: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("payouts", {
+      ...args,
+      createdAt: Date.now(),
+    });
+  },
+});
+
+export const updatePayoutStatus = mutation({
+  args: {
+    payoutId: v.id("payouts"),
+    status: v.string(),
+    txHash: v.optional(v.string()),
+    error: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const payout = await ctx.db.get(args.payoutId);
+    if (!payout) {
+      throw new Error("Payout not found");
+    }
+
+    const updates: Record<string, unknown> = { status: args.status };
+    if (args.txHash !== undefined) updates.txHash = args.txHash;
+    if (args.error !== undefined) updates.error = args.error;
+    if (args.status === "completed") updates.completedAt = Date.now();
+
+    await ctx.db.patch(args.payoutId, updates);
+    return args.payoutId;
+  },
+});

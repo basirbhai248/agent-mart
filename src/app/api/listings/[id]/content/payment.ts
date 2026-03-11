@@ -1,6 +1,6 @@
 const listingContentPath = /^\/api\/listings\/([^/]+)\/content\/?$/i;
 
-export type ListingResponse = { priceUsdc: number };
+export type ListingResponse = { priceUsdc: number; creatorWallet: string | null };
 const DEFAULT_NETWORK = "eip155:8453"; // Base mainnet
 const USDC_ASSET = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 
@@ -38,7 +38,7 @@ export async function fetchListing(
     return null;
   }
 
-  const payload = (await response.json()) as { priceUsdc?: unknown } | null;
+  const payload = (await response.json()) as { priceUsdc?: unknown; creatorWallet?: unknown } | null;
   if (
     !payload ||
     typeof payload.priceUsdc !== "number" ||
@@ -48,7 +48,10 @@ export async function fetchListing(
     return null;
   }
 
-  return { priceUsdc: payload.priceUsdc };
+  return {
+    priceUsdc: payload.priceUsdc,
+    creatorWallet: typeof payload.creatorWallet === "string" ? payload.creatorWallet : null,
+  };
 }
 
 export function parseUsdPrice(price: unknown): number {
