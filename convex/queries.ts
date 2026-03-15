@@ -12,13 +12,18 @@ export const getListings = query({
     const creatorMap = new Map(
       creators
         .filter(Boolean)
-        .map((c) => [c!._id, c!.displayName]),
+        .map((c) => [c!._id, c!]),
     );
 
-    return active.map((l) => ({
-      ...l,
-      creatorName: creatorMap.get(l.creatorId) ?? "Unknown",
-    }));
+    return active
+      .filter((l) => {
+        const creator = creatorMap.get(l.creatorId);
+        return creator?.subscriptionStatus !== "lapsed";
+      })
+      .map((l) => ({
+        ...l,
+        creatorName: creatorMap.get(l.creatorId)?.displayName ?? "Unknown",
+      }));
   },
 });
 
@@ -63,13 +68,18 @@ export const searchListings = query({
     const creatorMap = new Map(
       creators
         .filter(Boolean)
-        .map((c) => [c!._id, c!.displayName]),
+        .map((c) => [c!._id, c!]),
     );
 
-    return matches.map((l) => ({
-      ...l,
-      creatorName: creatorMap.get(l.creatorId) ?? "Unknown",
-    }));
+    return matches
+      .filter((l) => {
+        const creator = creatorMap.get(l.creatorId);
+        return creator?.subscriptionStatus !== "lapsed";
+      })
+      .map((l) => ({
+        ...l,
+        creatorName: creatorMap.get(l.creatorId)?.displayName ?? "Unknown",
+      }));
   },
 });
 
@@ -136,5 +146,29 @@ export const getPurchaseByListingAndBuyerWallet = query({
           purchase.buyerWallet.toLowerCase() === args.buyerWallet.toLowerCase(),
       ) ?? null
     );
+  },
+});
+
+export const getCreatorsWithDueSubscriptions = query({
+  args: {},
+  handler: async (ctx) => {
+    const creators = await ctx.db.query("creators").collect();
+    const now = Date.now();
+    return creators.filter(
+      (c) =>
+        c.subscriptionStatus === "active" &&
+        c.subscriptionExpiresAt !== undefined &&
+        c.subscriptionExpiresAt < now,
+    );
+  },
+});
+
+export const getFailedPayouts = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db
+      .query("payouts")
+      .withIndex("by_status", (q) => q.eq("status", "failed"))
+      .collect();
   },
 });

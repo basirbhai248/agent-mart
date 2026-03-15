@@ -390,7 +390,7 @@ test("createListingRoute returns 400 when required fields are missing", async ()
   const ctx = {
     runQuery: async (ref, args) => {
       queryCalls.push({ ref, args });
-      return { _id: "creator_1" };
+      return { _id: "creator_1", subscriptionStatus: "active", subscriptionExpiresAt: Date.now() + 86400000 };
     },
     runMutation: async () => {
       mutationCalled = true;
@@ -427,7 +427,7 @@ test("createListingRoute creates listing for valid API key and payload", async (
   const ctx = {
     runQuery: async (ref, args) => {
       queryCalls.push({ ref, args });
-      return { _id: "creator_1" };
+      return { _id: "creator_1", subscriptionStatus: "active", subscriptionExpiresAt: Date.now() + 86400000 };
     },
     runMutation: async (ref, args) => {
       mutationCalls.push({ ref, args });

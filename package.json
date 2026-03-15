@@ -11,6 +11,7 @@
     "lint": "npx prettier --check convex/*.ts convex/*.mjs scripts/*.mjs src/**/*.tsx *.mjs *.ts"
   },
   "dependencies": {
+    "@base-org/account": "^2.5.2",
     "@coinbase/x402": "^2.1.0",
     "@x402/evm": "^2.6.0",
     "@x402/next": "latest",

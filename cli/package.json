@@ -25,6 +25,7 @@
     "directory": "cli"
   },
   "dependencies": {
+    "@base-org/account": "^2.5.2",
     "@x402/evm": "^2.6.0",
     "@x402/fetch": "^2.6.0",
     "commander": "latest",

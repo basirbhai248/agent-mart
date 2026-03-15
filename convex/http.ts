@@ -108,6 +108,20 @@ export const createListingRoute = httpAction(async (ctx, request) => {
     return json({ error: "Invalid API key" }, 401);
   }
 
+  if (
+    creator.subscriptionStatus !== "active" ||
+    (creator.subscriptionExpiresAt !== undefined &&
+      creator.subscriptionExpiresAt < Date.now())
+  ) {
+    return json(
+      {
+        error:
+          "Active subscription required. Run `agentmart subscribe` to subscribe.",
+      },
+      403,
+    );
+  }
+
   let payload;
   try {
     payload = await request.json();
@@ -496,6 +510,126 @@ export const recordPayoutRoute = httpAction(async (ctx, request) => {
   return json({ ok: true }, 201);
 });
 
+function verifyCronSecret(request: Request): boolean {
+  const secret = process.env.CRON_SECRET?.trim();
+  if (!secret) return true;
+  return request.headers.get("x-cron-secret") === secret;
+}
+
+export const subscriptionActivateRoute = httpAction(async (ctx, request) => {
+  if (request.method !== "POST") {
+    return json({ error: "Method not allowed" }, 405);
+  }
+
+  const apiKey = parseBearerToken(request.headers.get("authorization"));
+  if (!apiKey) {
+    return json({ error: "API key required" }, 401);
+  }
+
+  const creator = await ctx.runQuery(api.queries.getCreatorByApiKey, {
+    apiKey,
+  });
+  if (!creator) {
+    return json({ error: "Invalid API key" }, 401);
+  }
+
+  let payload;
+  try {
+    payload = await request.json();
+  } catch {
+    return json({ error: "Invalid JSON body" }, 400);
+  }
+
+  const subscriptionId = asNonEmptyString(payload?.subscriptionId);
+  if (!subscriptionId) {
+    return json({ error: "subscriptionId is required" }, 400);
+  }
+
+  const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+  const expiresAt = Date.now() + THIRTY_DAYS_MS;
+
+  await ctx.runMutation(api.mutations.updateCreatorSubscription, {
+    creatorId: creator._id,
+    subscriptionId,
+    subscriptionStatus: "active",
+    subscriptionExpiresAt: expiresAt,
+  });
+
+  return json(
+    { ok: true, subscriptionStatus: "active", expiresAt },
+    200,
+  );
+});
+
+export const subscriptionDueRoute = httpAction(async (ctx, request) => {
+  if (request.method !== "GET") {
+    return json({ error: "Method not allowed" }, 405);
+  }
+
+  if (!verifyCronSecret(request)) {
+    return json({ error: "Unauthorized" }, 401);
+  }
+
+  const creators = await ctx.runQuery(
+    api.queries.getCreatorsWithDueSubscriptions,
+    {},
+  );
+  return json(creators, 200);
+});
+
+export const subscriptionUpdateRoute = httpAction(async (ctx, request) => {
+  if (request.method !== "POST") {
+    return json({ error: "Method not allowed" }, 405);
+  }
+
+  if (!verifyCronSecret(request)) {
+    return json({ error: "Unauthorized" }, 401);
+  }
+
+  let payload;
+  try {
+    payload = await request.json();
+  } catch {
+    return json({ error: "Invalid JSON body" }, 400);
+  }
+
+  const creatorId = asNonEmptyString(payload?.creatorId);
+  if (!creatorId) {
+    return json({ error: "creatorId is required" }, 400);
+  }
+
+  const subscriptionStatus = asNonEmptyString(payload?.subscriptionStatus);
+  if (!subscriptionStatus) {
+    return json({ error: "subscriptionStatus is required" }, 400);
+  }
+
+  await ctx.runMutation(api.mutations.updateCreatorSubscription, {
+    creatorId: creatorId as any,
+    subscriptionId: asOptionalNonEmptyString(payload?.subscriptionId),
+    subscriptionStatus,
+    subscriptionExpiresAt:
+      typeof payload?.subscriptionExpiresAt === "number"
+        ? payload.subscriptionExpiresAt
+        : undefined,
+    subscriptionTxHash: asOptionalNonEmptyString(payload?.subscriptionTxHash),
+  });
+
+  return json({ ok: true }, 200);
+});
+
+export const failedPayoutsRoute = httpAction(async (ctx, request) => {
+  if (request.method !== "GET") {
+    return json({ error: "Method not allowed" }, 405);
+  }
+
+  if (!verifyCronSecret(request)) {
+    return json({ error: "Unauthorized" }, 401);
+  }
+
+  const payouts = await ctx.runQuery(api.queries.getFailedPayouts, {});
+  return json(payouts, 200);
+});
+
 http.route({
   path: "/",
   method: "GET",
@@ -584,6 +718,30 @@ http.route({
   path: "/api/payout",
   method: "POST",
   handler: recordPayoutRoute,
+});
+
+http.route({
+  path: "/api/subscription/activate",
+  method: "POST",
+  handler: subscriptionActivateRoute,
+});
+
+http.route({
+  path: "/api/subscription/due",
+  method: "GET",
+  handler: subscriptionDueRoute,
+});
+
+http.route({
+  path: "/api/subscription/update",
+  method: "POST",
+  handler: subscriptionUpdateRoute,
+});
+
+http.route({
+  path: "/api/payouts/failed",
+  method: "GET",
+  handler: failedPayoutsRoute,
 });
 
 export default http;
