@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { base } from "@base-org/account/node";
 
-const SUBSCRIPTION_AMOUNT_USDC = "10";
+const SUBSCRIPTION_AMOUNT_USDC = "0.001";
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 function getConvexBaseUrl(): string {

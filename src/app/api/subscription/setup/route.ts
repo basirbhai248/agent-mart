@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { base } from "@base-org/account/node";
 
-const SUBSCRIPTION_AMOUNT_USDC = "10";
+const SUBSCRIPTION_AMOUNT_USDC = "0.001";
 const SUBSCRIPTION_PERIOD_DAYS = 30;
 
 let _cachedWalletAddress: string | null = null;

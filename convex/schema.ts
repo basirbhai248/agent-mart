@@ -13,6 +13,7 @@ export default defineSchema({
     subscriptionStatus: v.optional(v.string()),
     subscriptionExpiresAt: v.optional(v.number()),
     subscriptionTxHash: v.optional(v.string()),
+    whitelisted: v.optional(v.boolean()),
   })
     .index("by_wallet", ["wallet"])
     .index("by_apiKey", ["apiKey"]),

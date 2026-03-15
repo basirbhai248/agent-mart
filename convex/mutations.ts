@@ -218,3 +218,17 @@ export const updateCreatorSubscription = mutation({
     return args.creatorId;
   },
 });
+
+export const whitelistCreator = mutation({
+  args: { creatorId: v.id("creators"), whitelisted: v.boolean() },
+  handler: async (ctx, args) => {
+    const creator = await ctx.db.get(args.creatorId);
+    if (!creator) {
+      throw new Error("Creator not found");
+    }
+    await ctx.db.patch(args.creatorId, { whitelisted: args.whitelisted });
+    return args.creatorId;
+  },
+});
+
+

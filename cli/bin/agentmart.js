@@ -21,6 +21,8 @@ import { createUpdateAction } from "./update.js";
 import { createUpdatesAction } from "./updates.js";
 import { createSubscribeAction } from "./subscribe.js";
 import { createUploadAction } from "./upload.js";
+import { createSubscriptionStatusAction } from "./subscription-status.js";
+import { createUnsubscribeAction } from "./unsubscribe.js";
 
 const BUY_COMMAND_NAME = "buy";
 
@@ -106,6 +108,16 @@ export function createProgram() {
     .command("subscribe")
     .description("Subscribe to Agent Mart ($10 USDC/month)")
     .action(createSubscribeAction());
+
+  program
+    .command("subscription-status")
+    .description("Show your subscription status")
+    .action(createSubscriptionStatusAction());
+
+  program
+    .command("unsubscribe")
+    .description("Cancel your subscription")
+    .action(createUnsubscribeAction());
 
   program
 

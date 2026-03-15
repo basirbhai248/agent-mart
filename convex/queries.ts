@@ -18,7 +18,7 @@ export const getListings = query({
     return active
       .filter((l) => {
         const creator = creatorMap.get(l.creatorId);
-        return creator?.subscriptionStatus !== "lapsed";
+        return creator?.whitelisted === true || creator?.subscriptionStatus !== "lapsed";
       })
       .map((l) => ({
         ...l,
@@ -74,7 +74,7 @@ export const searchListings = query({
     return matches
       .filter((l) => {
         const creator = creatorMap.get(l.creatorId);
-        return creator?.subscriptionStatus !== "lapsed";
+        return creator?.whitelisted === true || creator?.subscriptionStatus !== "lapsed";
       })
       .map((l) => ({
         ...l,

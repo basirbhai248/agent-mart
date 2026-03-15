@@ -109,9 +109,10 @@ export const createListingRoute = httpAction(async (ctx, request) => {
   }
 
   if (
-    creator.subscriptionStatus !== "active" ||
-    (creator.subscriptionExpiresAt !== undefined &&
-      creator.subscriptionExpiresAt < Date.now())
+    creator.whitelisted !== true &&
+    (creator.subscriptionStatus !== "active" ||
+      (creator.subscriptionExpiresAt !== undefined &&
+        creator.subscriptionExpiresAt < Date.now()))
   ) {
     return json(
       {
@@ -403,6 +404,10 @@ export const getMeRoute = httpAction(async (ctx, request) => {
     {
       wallet: creator.wallet,
       displayName: creator.displayName,
+      subscriptionStatus: creator.subscriptionStatus ?? null,
+      subscriptionExpiresAt: creator.subscriptionExpiresAt ?? null,
+      subscriptionId: creator.subscriptionId ?? null,
+      whitelisted: creator.whitelisted ?? false,
     },
     200,
   );
@@ -617,6 +622,69 @@ export const subscriptionUpdateRoute = httpAction(async (ctx, request) => {
   return json({ ok: true }, 200);
 });
 
+export const subscriptionCancelRoute = httpAction(async (ctx, request) => {
+  if (request.method !== "POST") {
+    return json({ error: "Method not allowed" }, 405);
+  }
+
+  const apiKey = parseBearerToken(request.headers.get("authorization"));
+  if (!apiKey) {
+    return json({ error: "API key required" }, 401);
+  }
+
+  const creator = await ctx.runQuery(api.queries.getCreatorByApiKey, {
+    apiKey,
+  });
+  if (!creator) {
+    return json({ error: "Invalid API key" }, 401);
+  }
+
+  await ctx.runMutation(api.mutations.updateCreatorSubscription, {
+    creatorId: creator._id,
+    subscriptionStatus: "cancelled",
+  });
+
+  return json({ ok: true, subscriptionStatus: "cancelled" }, 200);
+});
+
+export const adminWhitelistRoute = httpAction(async (ctx, request) => {
+  if (request.method !== "POST") {
+    return json({ error: "Method not allowed" }, 405);
+  }
+
+  if (!verifyCronSecret(request)) {
+    return json({ error: "Unauthorized" }, 401);
+  }
+
+  let payload;
+  try {
+    payload = await request.json();
+  } catch {
+    return json({ error: "Invalid JSON body" }, 400);
+  }
+
+  const wallet = asNonEmptyString(payload?.wallet);
+  if (!wallet) {
+    return json({ error: "wallet is required" }, 400);
+  }
+
+  const whitelisted = payload?.whitelisted === true;
+
+  const creator = await ctx.runQuery(api.queries.getCreatorByWallet, {
+    wallet,
+  });
+  if (!creator) {
+    return json({ error: "Creator not found for wallet" }, 404);
+  }
+
+  await ctx.runMutation(api.mutations.whitelistCreator, {
+    creatorId: creator._id,
+    whitelisted,
+  });
+
+  return json({ ok: true, wallet, whitelisted }, 200);
+});
+
 export const failedPayoutsRoute = httpAction(async (ctx, request) => {
   if (request.method !== "GET") {
     return json({ error: "Method not allowed" }, 405);
@@ -742,6 +810,18 @@ http.route({
   path: "/api/payouts/failed",
   method: "GET",
   handler: failedPayoutsRoute,
+});
+
+http.route({
+  path: "/api/subscription/cancel",
+  method: "POST",
+  handler: subscriptionCancelRoute,
+});
+
+http.route({
+  path: "/api/admin/whitelist",
+  method: "POST",
+  handler: adminWhitelistRoute,
 });
 
 export default http;
