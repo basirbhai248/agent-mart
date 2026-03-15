@@ -8,6 +8,7 @@ export const createCreator = mutation({
     bio: v.string(),
     twitterHandle: v.optional(v.string()),
     apiKey: v.string(),
+    creatorFeePaid: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("creators", {
@@ -187,38 +188,6 @@ export const updatePayoutStatus = mutation({
   },
 });
 
-export const updateCreatorSubscription = mutation({
-  args: {
-    creatorId: v.id("creators"),
-    subscriptionId: v.optional(v.string()),
-    subscriptionStatus: v.string(),
-    subscriptionExpiresAt: v.optional(v.number()),
-    subscriptionTxHash: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const creator = await ctx.db.get(args.creatorId);
-    if (!creator) {
-      throw new Error("Creator not found");
-    }
-
-    const updates: Record<string, unknown> = {
-      subscriptionStatus: args.subscriptionStatus,
-    };
-    if (args.subscriptionId !== undefined) {
-      updates.subscriptionId = args.subscriptionId;
-    }
-    if (args.subscriptionExpiresAt !== undefined) {
-      updates.subscriptionExpiresAt = args.subscriptionExpiresAt;
-    }
-    if (args.subscriptionTxHash !== undefined) {
-      updates.subscriptionTxHash = args.subscriptionTxHash;
-    }
-
-    await ctx.db.patch(args.creatorId, updates);
-    return args.creatorId;
-  },
-});
-
 export const whitelistCreator = mutation({
   args: { creatorId: v.id("creators"), whitelisted: v.boolean() },
   handler: async (ctx, args) => {
@@ -230,5 +199,3 @@ export const whitelistCreator = mutation({
     return args.creatorId;
   },
 });
-
-

@@ -18,7 +18,7 @@ export const getListings = query({
     return active
       .filter((l) => {
         const creator = creatorMap.get(l.creatorId);
-        return creator?.whitelisted === true || creator?.subscriptionStatus !== "lapsed";
+        return creator?.creatorFeePaid === true || creator?.whitelisted === true;
       })
       .map((l) => ({
         ...l,
@@ -74,7 +74,7 @@ export const searchListings = query({
     return matches
       .filter((l) => {
         const creator = creatorMap.get(l.creatorId);
-        return creator?.whitelisted === true || creator?.subscriptionStatus !== "lapsed";
+        return creator?.creatorFeePaid === true || creator?.whitelisted === true;
       })
       .map((l) => ({
         ...l,
@@ -145,20 +145,6 @@ export const getPurchaseByListingAndBuyerWallet = query({
         (purchase) =>
           purchase.buyerWallet.toLowerCase() === args.buyerWallet.toLowerCase(),
       ) ?? null
-    );
-  },
-});
-
-export const getCreatorsWithDueSubscriptions = query({
-  args: {},
-  handler: async (ctx) => {
-    const creators = await ctx.db.query("creators").collect();
-    const now = Date.now();
-    return creators.filter(
-      (c) =>
-        c.subscriptionStatus === "active" &&
-        c.subscriptionExpiresAt !== undefined &&
-        c.subscriptionExpiresAt < now,
     );
   },
 });

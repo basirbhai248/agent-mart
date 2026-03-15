@@ -9,10 +9,7 @@ export default defineSchema({
     twitterHandle: v.optional(v.string()),
     apiKey: v.string(),
     createdAt: v.number(),
-    subscriptionId: v.optional(v.string()),
-    subscriptionStatus: v.optional(v.string()),
-    subscriptionExpiresAt: v.optional(v.number()),
-    subscriptionTxHash: v.optional(v.string()),
+    creatorFeePaid: v.optional(v.boolean()),
     whitelisted: v.optional(v.boolean()),
   })
     .index("by_wallet", ["wallet"])

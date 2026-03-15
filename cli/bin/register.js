@@ -76,7 +76,6 @@ async function parseResponseError(response) {
 }
 
 export async function registerCreator(options, deps = {}) {
-  const wallet = normalizeRequiredOption(options.wallet, "--wallet");
   const displayName = normalizeRequiredOption(options.name, "--name");
   const bio = normalizeRequiredOption(options.bio, "--bio");
   const apiUrl = resolveApiUrl({ apiUrl: options.apiUrl, env: deps.env });
@@ -88,6 +87,14 @@ export async function registerCreator(options, deps = {}) {
       "Missing private key. Run `agentmart config set private-key <key>` or set EVM_PRIVATE_KEY.",
     );
   }
+
+  // Derive wallet address from private key
+  let toAccount = deps.privateKeyToAccount;
+  if (!toAccount) {
+    ({ privateKeyToAccount: toAccount } = await import("viem/accounts"));
+  }
+  const account = toAccount(privateKey);
+  const wallet = account.address;
 
   const paidFetch = await buildPaymentFetch({
     privateKey,
@@ -116,15 +123,16 @@ export async function registerCreator(options, deps = {}) {
     throw new Error("Registration response did not include an API key");
   }
 
-  return { apiKey };
+  return { apiKey, wallet };
 }
 
 export function createRegisterAction(deps = {}) {
   const logger = deps.logger ?? console;
   const saveApiKey = deps.setApiKey ?? setApiKey;
   return async (options) => {
-    const { apiKey } = await registerCreator(options, deps);
+    const { apiKey, wallet } = await registerCreator(options, deps);
     await saveApiKey(apiKey);
+    logger.log(`Registered wallet: ${wallet}`);
     logger.log(`API key: ${apiKey}`);
   };
 }
